@@ -633,7 +633,7 @@ class OCRInterface:
             max-width: 100% !important; 
             margin: 0 auto !important;
             font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #0f172a 50%, #1a2332 75%, #0f172a 100%) !important;
+            background: linear-gradient(135deg, #1a1f2e 0%, #2d1b69 25%, #1a1f2e 50%, #402d8b 75%, #1a1f2e 100%) !important;
             min-height: 100vh !important;
             position: relative !important;
             overflow: hidden !important;
@@ -645,7 +645,7 @@ class OCRInterface:
             position: absolute;
             width: 600px;
             height: 600px;
-            background: radial-gradient(circle, rgba(6, 182, 212, 0.4) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(147, 51, 234, 0.4) 0%, transparent 70%);
             top: -200px;
             right: -200px;
             animation: float 20s ease-in-out infinite;
@@ -656,7 +656,7 @@ class OCRInterface:
             position: absolute;
             width: 500px;
             height: 500px;
-            background: radial-gradient(circle, rgba(34, 211, 238, 0.3) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(168, 85, 247, 0.3) 0%, transparent 70%);
             bottom: -150px;
             left: -150px;
             animation: float 15s ease-in-out infinite reverse;
@@ -871,7 +871,7 @@ class OCRInterface:
         .primary-btn:hover {
             transform: translateY(-2px) !important;
             box-shadow: 
-                0 8px 24px rgba(6, 182, 212, 0.4),
+                0 8px 24px rgba(147, 51, 234, 0.4),
                 inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
         }
         
@@ -882,7 +882,7 @@ class OCRInterface:
         .primary-btn:active {
             transform: translateY(0) !important;
             box-shadow: 
-                0 2px 8px rgba(6, 182, 212, 0.3),
+                0 2px 8px rgba(147, 51, 234, 0.3),
                 inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
         }
         
@@ -1328,13 +1328,18 @@ class OCRInterface:
 
     def create_interface(self):
         """Create the Gradio interface."""
-        with gr.Blocks(title="OCR Processor", css=self.get_css()) as demo:
+        with gr.Blocks(title="Document Ingestion - Agent Edition", css=self.get_css()) as demo:
             
             # Header
             gr.HTML("""
                 <div class="main-header">
                     <h1>Document Ingestion</h1>
-                    <p>We put the DI in inDIgestion.</p>
+                    <p style="font-size: 1.2em; color: #34d399;">Agent-powered OCR with intelligent formatting</p>
+                    <div style="margin-top: 0.5rem; font-size: 0.9em; opacity: 0.8;">
+                        <span style="color: #60a5fa;">OpenAI Vision</span> • 
+                        <span style="color: #c084fc;">Anthropic Claude</span> • 
+                        <span style="color: #fbbf24;">Multi-Agent Pipeline</span>
+                    </div>
                 </div>
             """)
             

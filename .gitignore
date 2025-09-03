@@ -52,7 +52,6 @@ Thumbs.db
 output/
 *.md
 !README.md
-!CLAUDE.md
 
 # Temporary files
 tmp/

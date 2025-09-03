@@ -2,7 +2,7 @@
 title: DI Agent
 emoji: 🦀
 colorFrom: gray
-colorTo: red
+colorTo: purple
 sdk: gradio
 sdk_version: 5.44.1
 app_file: app.py
