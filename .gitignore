@@ -58,3 +58,8 @@ output/
 tmp/
 temp/
 *.tmp
+
+# Development/Testing files
+ui_simplified.py
+compare_ui.py
+test_simplified.py
