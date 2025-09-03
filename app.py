@@ -73,8 +73,7 @@ if __name__ == "__main__":
 
     # Launch the app  
     launch_kwargs = {
-        "show_api": False,
-        "allowed_paths": [os.path.expanduser("~/Desktop")]
+        "show_api": False
     }
 
     if running_on_spaces():

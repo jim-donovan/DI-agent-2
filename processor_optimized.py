@@ -383,8 +383,10 @@ class OptimizedDocumentProcessor:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_filename = f"{pdf_path.stem}_{timestamp}.md"
             
-            # Save to Desktop (configured as allowed path in Gradio)
-            output_path = Path.home() / "Desktop" / output_filename
+            # Save to temp directory for cross-platform compatibility
+            import tempfile
+            temp_dir = Path(tempfile.gettempdir())
+            output_path = temp_dir / output_filename
             
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(content)
