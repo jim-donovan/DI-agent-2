@@ -10,13 +10,8 @@ import traceback
 import gradio as gr
 from config import config  # This loads .env first
 
-# Toggle between original and simplified UI
-USE_SIMPLIFIED_UI = True  # Set to False to use original UI
-
-if USE_SIMPLIFIED_UI:
-    from ui_simplified import create_ui
-else:
-    from ui import create_ui
+# Use main UI
+from ui import create_ui
 
 def main():
     """Kickoff DI processor."""
@@ -42,7 +37,7 @@ def main():
     print(f"🤖 Vision model: {config.openai_model}")
     print(f"📝 Temperature: {config.temperature}")
     print(f"💡 Focus: Vision OCR priority, accuracy, speed")
-    print(f"🎨 UI Mode: {'Simplified' if USE_SIMPLIFIED_UI else 'Original'}")
+    print("🎨 UI Mode: Main")
     print("=" * 50)
     
     try:
