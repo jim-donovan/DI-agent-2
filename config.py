@@ -26,7 +26,7 @@ class Config:
     openai_model: str = "gpt-4o"
     temperature: float = 0.1
     max_output_tokens: int = 16384  # GPT-4o maximum completion tokens
-    enable_content_formatting_agent: bool = os.getenv("ENABLE_CONTENT_FORMATTING_AGENT", "false").lower() == "true"
+    enable_content_formatting_agent: bool = os.getenv("ENABLE_CONTENT_FORMATTING_AGENT", "true").lower() == "true"
     
     # Anthropic Settings for Evaluation  
     anthropic_model: str = "claude-3-5-sonnet-20241022"
