@@ -376,11 +376,11 @@ class OCRInterface:
             elif current_section == "anthropic":
                 anthropic_lines.append(line)
         
-        # Extract scores and recommendations from the summary section
-        openai_score = self._extract_score_from_summary(evaluation_content, "OpenAI")
-        anthropic_score = self._extract_score_from_summary(evaluation_content, "Anthropic")
-        openai_rec = self._extract_recommendation_from_summary(evaluation_content, "OpenAI")  
-        anthropic_rec = self._extract_recommendation_from_summary(evaluation_content, "Anthropic")
+        # Extract scores and recommendations directly from evaluation sections
+        openai_score = self._extract_score(evaluation_content, "OPENAI")
+        anthropic_score = self._extract_score(evaluation_content, "ANTHROPIC")
+        openai_rec = self._extract_recommendation(evaluation_content, "OPENAI")  
+        anthropic_rec = self._extract_recommendation(evaluation_content, "ANTHROPIC")
         
         # Create comparison summary HTML
         comparison_summary_html = f"""
@@ -448,74 +448,54 @@ class OCRInterface:
         """Extract score from evaluation content."""
         lines = content.split('\n')
         
-        # Debug: log what we're looking for
-        print(f"DEBUG: Looking for score with marker: '{marker}'")
+        # Find the evaluation section and look for score in next few lines
+        for i, line in enumerate(lines):
+            line = line.strip()
+            if f"{marker} EVALUATION" in line:
+                # Look for score in the next 10 lines after finding the section
+                for j in range(i + 1, min(i + 10, len(lines))):
+                    check_line = lines[j].strip()
+                    if "Score:" in check_line:
+                        try:
+                            # Handle formats like "Score: 85.0/100"
+                            score_part = check_line.split("Score:")[1].strip()
+                            score = score_part.split('/')[0].strip()
+                            return f"{score}/100"
+                        except Exception as e:
+                            print(f"DEBUG: Score parsing failed for line '{check_line}': {e}")
+                            continue
+                    # Stop if we hit another evaluation section
+                    if "EVALUATION" in check_line and marker not in check_line:
+                        break
+                break
         
-        for line in lines:
-            # More flexible score extraction patterns
-            if "Score:" in line and ("OpenAI" in marker or "Anthropic" in marker or "Overall" in marker):
-                try:
-                    # Handle formats like "**Score:** 85.0/100"
-                    if "**Score:**" in line:
-                        score_part = line.split("**Score:**")[1].strip()
-                        score = score_part.split('/')[0].strip()
-                        return f"{score}/100"
-                    # Handle formats like "Score: 85.0/100"
-                    elif "Score:" in line:
-                        score_part = line.split("Score:")[1].strip()
-                        score = score_part.split('/')[0].strip()
-                        return f"{score}/100"
-                except Exception as e:
-                    print(f"DEBUG: Score parsing failed for line '{line}': {e}")
-                    continue
-            
-            # Also try pattern matching without marker for dual evaluation format
-            if ("🤖 OpenAI" in line or "🧠 Anthropic" in line) and "Score:" in line:
-                try:
-                    score_part = line.split("Score:")[1].strip()
-                    score = score_part.split(' ')[0].strip()  # Take first part before space
-                    return score
-                except Exception as e:
-                    print(f"DEBUG: Direct score parsing failed for line '{line}': {e}")
-                    continue
-        
-        print(f"DEBUG: No score found for marker '{marker}'")
         return "N/A"
     
     def _extract_recommendation(self, content: str, marker: str) -> str:
         """Extract recommendation from evaluation content."""
         lines = content.split('\n')
         
-        # Debug: log what we're looking for  
-        print(f"DEBUG: Looking for recommendation with marker: '{marker}'")
+        # Find the evaluation section and look for recommendation in next few lines
+        for i, line in enumerate(lines):
+            line = line.strip()
+            if f"{marker} EVALUATION" in line:
+                # Look for recommendation in the next 10 lines after finding the section
+                for j in range(i + 1, min(i + 10, len(lines))):
+                    check_line = lines[j].strip()
+                    if "Recommendation:" in check_line:
+                        try:
+                            # Handle formats like "Recommendation: ACCEPT"
+                            rec_part = check_line.split("Recommendation:")[1].strip()
+                            # Remove any trailing text after whitespace
+                            return rec_part.split()[0] if rec_part else "UNKNOWN"
+                        except Exception as e:
+                            print(f"DEBUG: Recommendation parsing failed for line '{check_line}': {e}")
+                            continue
+                    # Stop if we hit another evaluation section
+                    if "EVALUATION" in check_line and marker not in check_line:
+                        break
+                break
         
-        for line in lines:
-            # More flexible recommendation extraction patterns
-            if "Recommendation:" in line and ("OpenAI" in marker or "Anthropic" in marker or "Recommendation" in marker):
-                try:
-                    # Handle formats like "**Recommendation:** REVIEW"
-                    if "**Recommendation:**" in line:
-                        rec = line.split("**Recommendation:**")[1].strip()
-                        return rec
-                    # Handle formats like "Recommendation: REVIEW"
-                    elif "Recommendation:" in line:
-                        rec = line.split("Recommendation:")[1].strip()
-                        return rec
-                except Exception as e:
-                    print(f"DEBUG: Recommendation parsing failed for line '{line}': {e}")
-                    continue
-                    
-            # Also try pattern matching for dual evaluation format
-            if ("🤖 OpenAI" in line or "🧠 Anthropic" in line) and "Recommendation:" in line:
-                try:
-                    rec_part = line.split("Recommendation:")[1].strip()
-                    rec = rec_part.split(' ')[0].strip()  # Take first word
-                    return rec
-                except Exception as e:
-                    print(f"DEBUG: Direct recommendation parsing failed for line '{line}': {e}")
-                    continue
-        
-        print(f"DEBUG: No recommendation found for marker '{marker}'")
         return "UNKNOWN"
     
     def _extract_score_from_summary(self, content: str, provider: str) -> str:

@@ -199,7 +199,7 @@ class CheckerAgent(BaseAgent):
         report.append(f"Recommendation: {comparison.openai_result.recommendation.value}")
         
         if comparison.openai_result.missing_items:
-            report.append(f"\n❌ Missing Items: {len(comparison.openai_result.missing_items)}")
+            report.append(f"\nMissing Items: {len(comparison.openai_result.missing_items)}")
             # Show all items, not just first 5
             for i, item in enumerate(comparison.openai_result.missing_items, 1):
                 report.append(f"  {i}. {item.get('content', 'N/A')}")
@@ -221,7 +221,7 @@ class CheckerAgent(BaseAgent):
             report.append(f"Recommendation: {comparison.anthropic_result.recommendation.value}")
             
             if comparison.anthropic_result.missing_items:
-                report.append(f"\n❌ Missing Items: {len(comparison.anthropic_result.missing_items)}")
+                report.append(f"\nMissing Items: {len(comparison.anthropic_result.missing_items)}")
                 # Show all items with full content
                 for i, item in enumerate(comparison.anthropic_result.missing_items, 1):
                     report.append(f"  {i}. {item.get('content', 'N/A')}")
