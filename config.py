@@ -29,7 +29,7 @@ class Config:
     enable_content_formatting_agent: bool = os.getenv("ENABLE_CONTENT_FORMATTING_AGENT", "true").lower() == "true"
     
     # Anthropic Settings for Evaluation  
-    anthropic_model: str = "claude-3-5-sonnet-20241022"
+    anthropic_model: str = "claude-opus-4-1-20250805"  # Using the latest Opus 4.1 model
     anthropic_temperature: float = 0.0
     anthropic_max_tokens: int = 8192
     

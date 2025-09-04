@@ -199,7 +199,8 @@ class AgentOrchestrator:
     def register_agent(self, agent: BaseAgent) -> None:
         """Register an agent with the orchestrator."""
         self.agents[agent.agent_id] = agent
-        self.logger.log_step(f"Registered agent: {agent.agent_id}")
+        # Debug logging removed - only show in final output
+        # self.logger.log_step(f"Registered agent: {agent.agent_id}")
     
     def execute_pipeline(self, input_data: Any, agent_sequence: List[str], 
                         context: Dict[str, Any] = None) -> Dict[str, AgentResponse]:

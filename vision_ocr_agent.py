@@ -29,7 +29,7 @@ class VisionOCRAgent(BaseAgent):
         
     def get_system_prompt(self) -> str:
         """Get the system prompt for vision OCR."""
-        return """Extract all text from the image preserving the original layout and formatting. Include all content: headers, body text, tables, forms, numbers, and symbols. Maintain spatial relationships and alignment."""
+        return """Extract all visible text from the image. Preserve layout, structure, and formatting. Return only the extracted content without commentary."""
         
     def process(self, input_data: Dict[str, Any], context: Dict[str, Any] = None) -> AgentResponse:
         """Process image input and extract text."""
@@ -131,6 +131,7 @@ class VisionOCRAgent(BaseAgent):
         
         try:
             content, tokens_used = self.make_api_call(messages, model="gpt-4o")
+            content = self._clean_ai_metadata(content)
             reasoning_steps.append("Successfully extracted text from image")
             
             return {
@@ -155,7 +156,7 @@ class VisionOCRAgent(BaseAgent):
         
         img_base64 = self._image_to_base64(image)
         
-        table_prompt = """Extract the table preserving its structure. Identify all column headers including nested headers and maintain alignment between headers and data. Include all text content."""
+        table_prompt = """Extract table content preserving structure. Identify column headers including nested headers. Maintain data alignment. Return only extracted content."""
 
         messages = [
             {
@@ -173,6 +174,7 @@ class VisionOCRAgent(BaseAgent):
         
         try:
             content, tokens_used = self.make_api_call(messages, model="gpt-4o")
+            content = self._clean_ai_metadata(content)
             reasoning_steps.append("Successfully extracted table-focused content")
             
             return {
@@ -197,7 +199,7 @@ class VisionOCRAgent(BaseAgent):
         
         img_base64 = self._image_to_base64(image)
         
-        form_prompt = """Extract all text, checkboxes, and form fields. Represent checkboxes as [x] for checked or [ ] for unchecked."""
+        form_prompt = """Extract text, checkboxes, and form fields. Use [x] for checked, [ ] for unchecked. Return only extracted content."""
 
         messages = [
             {
@@ -215,6 +217,7 @@ class VisionOCRAgent(BaseAgent):
         
         try:
             content, tokens_used = self.make_api_call(messages, model="gpt-4o")
+            content = self._clean_ai_metadata(content)
             reasoning_steps.append("Successfully extracted form-focused content")
             
             return {
@@ -239,7 +242,7 @@ class VisionOCRAgent(BaseAgent):
         
         img_base64 = self._image_to_base64(image)
         
-        technical_prompt = """Extract all text including technical symbols, formulas, and diagrams. Preserve mathematical notation and technical formatting."""
+        technical_prompt = """Extract text including technical symbols, formulas, diagrams. Preserve mathematical notation and formatting. Return only extracted content."""
 
         messages = [
             {
@@ -257,6 +260,7 @@ class VisionOCRAgent(BaseAgent):
         
         try:
             content, tokens_used = self.make_api_call(messages, model="gpt-4o")
+            content = self._clean_ai_metadata(content)
             reasoning_steps.append("Successfully extracted technical content")
             
             return {
@@ -329,4 +333,38 @@ class VisionOCRAgent(BaseAgent):
         if image.mode != 'RGB':
             image = image.convert('RGB')
         return util_image_to_base64(image, format="PNG")
+    
+    def _clean_ai_metadata(self, text: str) -> str:
+        """Remove AI metadata, apologies, and commentary from OCR output."""
+        if not text:
+            return text
+            
+        import re
+        
+        # Remove common AI metadata patterns
+        patterns_to_remove = [
+            r"I'm unable to.*?(?:\.|$)",
+            r"I cannot.*?(?:\.|$)",
+            r"If you have any.*?(?:\.|$)",
+            r"feel free to ask.*?(?:\.|$)",
+            r"I apologize.*?(?:\.|$)",
+            r"Please note.*?(?:\.|$)",
+            r"It appears.*?(?:\.|$)",
+            r"Based on.*?(?:\.|$)",
+            r"Here is.*?(?:\.|$)",
+            r"The following.*?(?:\.|$)",
+            r"As requested.*?(?:\.|$)",
+            r"I'll extract.*?(?:\.|$)",
+        ]
+        
+        cleaned_text = text
+        for pattern in patterns_to_remove:
+            cleaned_text = re.sub(pattern, '', cleaned_text, flags=re.IGNORECASE | re.MULTILINE)
+        
+        # Clean up extra whitespace and empty lines
+        cleaned_text = re.sub(r'\n\s*\n\s*\n', '\n\n', cleaned_text)
+        cleaned_text = re.sub(r'^\s*\n', '', cleaned_text)
+        cleaned_text = cleaned_text.strip()
+        
+        return cleaned_text
     

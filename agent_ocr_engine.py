@@ -67,7 +67,8 @@ class AgentBasedOCREngine:
         self.total_char_count = 0
         self.total_line_count = 0
         
-        logger.log_step(f"Agent-based OCR engine initialized (Agents: {len(self.agents)})")
+        # Debug info stored for final output only
+        self.initialization_info = f"Agent-based OCR engine initialized (Agents: {len(self.agents)})"
     
     def process_document_systematically(self, pdf_document, page_ranges: str = "all", 
                                       document_name: str = "Unknown Document") -> Dict[str, Any]:
@@ -219,7 +220,10 @@ class AgentBasedOCREngine:
                 
                 checker_context = {
                     "document_name": document_name,
-                    "total_pages": total_pages
+                    "total_pages": total_pages,
+                    "debug_info": {
+                        "initialization_info": getattr(self, 'initialization_info', 'Agent-based OCR engine')
+                    }
                 }
                 
                 evaluation_response = self.checker_agent.process(checker_input, checker_context)
@@ -323,7 +327,7 @@ class AgentBasedOCREngine:
                 # Capture Tesseract output for debug tab
                 debug_entry = f"Page {page_num} - Tesseract fallback extraction:\n{text}"
                 self.debug_raw_ocr_content.append(debug_entry)
-                self.logger.log_step(f"DEBUG: Captured Tesseract OCR for page {page_num}, total entries: {len(self.debug_raw_ocr_content)}")
+                # Debug logging removed - content available through UI tabs
                 
                 return text
             else:
@@ -369,7 +373,7 @@ class AgentBasedOCREngine:
             if response.success:
                 self.vision_calls_used += 1
                 self.total_tokens_used += (response.tokens_used or 0)
-                self.logger.log_step(f"Vision agent extracted {len(response.content)} chars (confidence: {response.confidence:.2f})")
+                # Reduced logging for clean output
                 
                 # Track text extraction quality
                 self.total_word_count += len(response.content.split()) if response.content else 0
@@ -384,7 +388,7 @@ class AgentBasedOCREngine:
                 if response.content and response.content.strip():
                     debug_entry = f"Page {page_num} - {strategy} extraction:\n{response.content}"
                     self.debug_raw_ocr_content.append(debug_entry)
-                    self.logger.log_step(f"DEBUG: Captured raw OCR for page {page_num}, total entries: {len(self.debug_raw_ocr_content)}")
+                    # Debug logging removed - content available through UI tabs
                 
                 return response.content, True
             else:
@@ -564,8 +568,7 @@ class AgentBasedOCREngine:
             
             if "vision_ocr_agent" in agent_sequence:
                 # Full pipeline with vision extraction
-                if config.debug_ocr_pipeline:
-                    self.logger.info(f"🔍 DEBUG - Starting OCR Pipeline for Page {page_num}")
+                # Debug logging removed - verbose output moved to UI only
                 
                 input_data = {
                     "image": page_data["image"],

@@ -334,11 +334,11 @@ class OCRInterface:
                     "<div class='status-box'>No evaluation metrics available</div>"
                 )
             
-            # Check if this is a comparison report
-            if "Dual Evaluation Comparison Report" in evaluation_content:
+            # Check if this is a comparison report (look for both evaluations)
+            if "ANTHROPIC EVALUATION" in evaluation_content and "OPENAI EVALUATION" in evaluation_content:
                 return self._parse_dual_evaluation(evaluation_content)
             else:
-                # Single evaluation - put it in Anthropic column (primary)
+                # Single evaluation - put it in OpenAI column 
                 return self._parse_single_evaluation(evaluation_content)
                 
         except Exception as e:
@@ -362,13 +362,14 @@ class OCRInterface:
         current_section = None
         
         for line in lines:
-            if "🤖 OpenAI GPT-4V Findings" in line:
+            # Check for the actual headers used by CheckerAgent
+            if "OPENAI EVALUATION" in line:
                 current_section = "openai"
-                openai_lines.append("## OpenAI GPT-4V Findings")
-            elif "🧠 Anthropic Claude Findings" in line:
+                openai_lines.append("## OpenAI Evaluation")
+            elif "ANTHROPIC EVALUATION" in line:
                 current_section = "anthropic"
-                anthropic_lines.append("## Anthropic Claude Findings")
-            elif "Final Recommendation" in line:
+                anthropic_lines.append("## Anthropic Evaluation")
+            elif "DEBUG INFORMATION" in line or "EVALUATOR COMPARISON" in line:
                 current_section = None
             elif current_section == "openai":
                 openai_lines.append(line)
@@ -521,94 +522,62 @@ class OCRInterface:
         """Extract score from evaluation comparison summary section."""
         lines = content.split('\n')
         
-        # Look for the evaluation method comparison section, then find provider-specific scores
-        in_comparison_section = False
-        in_provider_subsection = False
+        # Look for the specific evaluation sections in the report
+        in_provider_section = False
         
         for line in lines:
-            # Check if we're in the evaluation method comparison section
-            if "Evaluation Method Comparison" in line:
-                in_comparison_section = True
+            # Check if we're in the right evaluation section
+            if provider.upper() in line and "EVALUATION" in line:
+                in_provider_section = True
                 continue
-            elif in_comparison_section and line.startswith("## ") and "Evaluation Method Comparison" not in line:
-                in_comparison_section = False
+            elif in_provider_section and ("=" in line and len(line.strip()) > 10 and line.strip().count("=") > 10):
+                # We've hit another section separator
+                in_provider_section = False
                 continue
                 
-            # If we're in the comparison section, look for provider subsections
-            if in_comparison_section:
-                if f"🤖 {provider} GPT-4V Evaluation" in line or f"🧠 {provider} Claude Evaluation" in line:
-                    in_provider_subsection = True
+            # If we're in the right section, look for score
+            if in_provider_section and "Score:" in line:
+                try:
+                    # Handle formats like "Score: 85.0/100"
+                    score_part = line.split("Score:")[1].strip()
+                    score = score_part.split('/')[0].strip()
+                    return f"{score}/100"
+                except Exception as e:
+                    print(f"DEBUG: Score parsing failed for line '{line}': {e}")
                     continue
-                elif line.startswith("### ") and provider not in line:
-                    in_provider_subsection = False
-                    continue
-                    
-                # If we're in the right provider subsection, look for score
-                if in_provider_subsection and ("**Score:**" in line or "Score:" in line):
-                    try:
-                        # Handle formats like "**Score:** 85.0/100"
-                        if "**Score:**" in line:
-                            score_part = line.split("**Score:**")[1].strip()
-                            score = score_part.split('/')[0].strip()
-                            return f"{score}/100"
-                        # Handle formats like "Score: 85.0/100"
-                        elif "Score:" in line:
-                            score_part = line.split("Score:")[1].strip()
-                            score = score_part.split('/')[0].strip()
-                            return f"{score}/100"
-                    except Exception as e:
-                        print(f"DEBUG: Summary score parsing failed for line '{line}': {e}")
-                        continue
         
-        print(f"DEBUG: No summary score found for provider '{provider}' in comparison section")
-        print(f"DEBUG: Content preview: {content[:500]}")
+        print(f"DEBUG: No score found for provider '{provider}'")
         return "N/A"
     
     def _extract_recommendation_from_summary(self, content: str, provider: str) -> str:
         """Extract recommendation from evaluation comparison summary section."""
         lines = content.split('\n')
         
-        # Look for the evaluation method comparison section, then find provider-specific recommendations
-        in_comparison_section = False
-        in_provider_subsection = False
+        # Look for the specific evaluation sections in the report
+        in_provider_section = False
         
         for line in lines:
-            # Check if we're in the evaluation method comparison section
-            if "Evaluation Method Comparison" in line:
-                in_comparison_section = True
+            # Check if we're in the right evaluation section
+            if provider.upper() in line and "EVALUATION" in line:
+                in_provider_section = True
                 continue
-            elif in_comparison_section and line.startswith("## ") and "Evaluation Method Comparison" not in line:
-                in_comparison_section = False
+            elif in_provider_section and ("=" in line and len(line.strip()) > 10 and line.strip().count("=") > 10):
+                # We've hit another section separator
+                in_provider_section = False
                 continue
                 
-            # If we're in the comparison section, look for provider subsections
-            if in_comparison_section:
-                if f"🤖 {provider} GPT-4V Evaluation" in line or f"🧠 {provider} Claude Evaluation" in line:
-                    in_provider_subsection = True
+            # If we're in the right section, look for recommendation
+            if in_provider_section and "Recommendation:" in line:
+                try:
+                    # Handle formats like "Recommendation: ACCEPT"
+                    rec_part = line.split("Recommendation:")[1].strip()
+                    # Remove any trailing text after whitespace
+                    return rec_part.split()[0] if rec_part else "UNKNOWN"
+                except Exception as e:
+                    print(f"DEBUG: Recommendation parsing failed for line '{line}': {e}")
                     continue
-                elif line.startswith("### ") and provider not in line:
-                    in_provider_subsection = False
-                    continue
-                    
-                # If we're in the right provider subsection, look for recommendation
-                if in_provider_subsection and ("**Recommendation:**" in line or "Recommendation:" in line):
-                    try:
-                        # Handle formats like "**Recommendation:** REVIEW"
-                        if "**Recommendation:**" in line:
-                            rec_part = line.split("**Recommendation:**")[1].strip()
-                            # Remove any trailing text after whitespace
-                            return rec_part.split()[0] if rec_part else "UNKNOWN"
-                        # Handle formats like "Recommendation: REVIEW"
-                        elif "Recommendation:" in line:
-                            rec_part = line.split("Recommendation:")[1].strip()
-                            # Remove any trailing text after whitespace
-                            return rec_part.split()[0] if rec_part else "UNKNOWN"
-                    except Exception as e:
-                        print(f"DEBUG: Summary recommendation parsing failed for line '{line}': {e}")
-                        continue
         
-        print(f"DEBUG: No summary recommendation found for provider '{provider}' in comparison section")
-        print(f"DEBUG: Content preview: {content[:500]}")
+        print(f"DEBUG: No recommendation found for provider '{provider}'")
         return "UNKNOWN"
     
     def _extract_agreement(self, content: str) -> str:
@@ -1062,6 +1031,7 @@ class OCRInterface:
                 summary_stats_html = "<div class='status-box status-error'>❌ Summary generation failed</div>"
             
             # Parse evaluation report for side-by-side display
+            # Get evaluation report directly from the ProcessingResult
             evaluation_content = result.evaluation_report if hasattr(result, 'evaluation_report') and result.evaluation_report else "*No evaluation report available*"
             self.current_evaluation = evaluation_content  # Store for download
             

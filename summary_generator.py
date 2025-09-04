@@ -21,9 +21,10 @@ class SummaryGenerator:
         
         if self.summary_enabled:
             self.summary_agent = SummaryAgent(logger, self.api_key)
-            self.logger.log_step("📋 Summary generator initialized (AI-powered)")
+            # Debug info - store for final output only
+            self.init_status = "Summary generator initialized (AI-powered)"
         else:
-            self.logger.log_warning("⚠️ Summary generator initialized (no AI - basic extraction only)")
+            self.init_status = "Summary generator initialized (no AI - basic extraction only)"
     
     def generate_summary(self, content: str, document_title: str = "Document") -> Tuple[str, bool]:
         """

@@ -53,6 +53,9 @@ output/
 *.md
 !README.md
 
+# Claude Code project file
+CLAUDE.md
+
 # Temporary files
 tmp/
 temp/

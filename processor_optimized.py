@@ -53,7 +53,8 @@ class OptimizedDocumentProcessor:
         self.ocr_engine.is_abort_requested = self.is_abort_requested
         self.use_systematic_processing = True  # Enable new systematic pipeline
         self.max_workers = max_workers or min(4, multiprocessing.cpu_count())
-        self.logger.log_metric("Parallel workers", self.max_workers)
+        # Store debug info for final output
+        self.debug_info = {"parallel_workers": self.max_workers}
         self.total_vision_calls = 0
     
     def abort_processing(self) -> None:
@@ -180,12 +181,12 @@ class OptimizedDocumentProcessor:
                         # Generate evaluation report separately
                         evaluation_report = None
                         if result.get("evaluation"):
-                            # Use the checker agent's generate_evaluation_report method
-                            if "checker" in self.ocr_engine.agents:
-                                evaluation_report = self.ocr_engine.checker_agent.generate_evaluation_report(result["evaluation"])
-                            else:
-                                # Fallback simple report
-                                evaluation = result["evaluation"]
+                            # Extract evaluation report from the structured result
+                            evaluation = result["evaluation"]
+                            evaluation_report = evaluation.get("evaluation_report", "")
+                            
+                            # If no report found, create fallback
+                            if not evaluation_report:
                                 evaluation_report = "# Processing Quality Report\n\n"
                                 evaluation_report += f"**Overall Score:** {evaluation.get('overall_score', 0):.1f}/100\n"
                                 evaluation_report += f"**Recommendation:** {evaluation.get('recommendation', 'UNKNOWN')}\n\n"

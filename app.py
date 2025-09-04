@@ -37,7 +37,7 @@ def main():
     print(f"🤖 Vision model: {config.openai_model}")
     print(f"📝 Temperature: {config.temperature}")
     print(f"💡 Focus: Vision OCR priority, accuracy, speed")
-    print("🎨 UI Mode: Main")
+    # Using main UI interface
     print("=" * 50)
     
     try:

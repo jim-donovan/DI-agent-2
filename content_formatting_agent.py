@@ -37,7 +37,7 @@ When you encounter data that appears to be in table format (aligned columns of d
 * Identify column headers (typically the utmost top labels)
 * Identify row headers (typically the leftmost column)
 * For each cell value, create a **flattened structured entry** that connects it to both its row and column, using this format:
-* **[Column Label, including wrapped cell content]** - **[Row Label, including wrapped cell content]**: [Value]
+* **[Column Label]** - **[Row Label]**: [Value]
 
 ## Checkbox Detection and Formatting
 
@@ -64,7 +64,7 @@ When you encounter data that appears to be in table format (aligned columns of d
 * Maintain logical groupings of related information
 * Keep indentation patterns and data hierarchy
 
-Apply these rules systematically to transform the text."""
+Transform the text using these rules. Return only the formatted content."""
     
     def process(self, input_data: Any, context: Dict[str, Any] = None) -> AgentResponse:
         """Process raw text and apply intelligent formatting."""
@@ -92,15 +92,7 @@ Apply these rules systematically to transform the text."""
             content_analysis = self._analyze_content(raw_text)
             formatting_strategy = self._determine_strategy(content_analysis, context)
             
-            # Debug logging for content formatting agent input
-            if config.debug_ocr_pipeline:
-                self.logger.info(f"🔍 DEBUG - Content Formatting Agent INPUT:")
-                self.logger.info(f"Strategy: {formatting_strategy}")
-                self.logger.info(f"Analysis: {content_analysis}")
-                self.logger.info(f"Input Length: {len(raw_text)} chars")
-                self.logger.info("=" * 80)
-                self.logger.info(raw_text)  # Log full content without truncation
-                self.logger.info("=" * 80)
+            # Debug logging removed - verbose output moved to UI only
             
             self.add_memory("formatting_request", {
                 "text_length": len(raw_text),
@@ -113,14 +105,7 @@ Apply these rules systematically to transform the text."""
                 raw_text, formatting_strategy, content_analysis, context
             )
             
-            # Debug logging for content formatting agent output
-            if config.debug_ocr_pipeline:
-                self.logger.info(f"🔍 DEBUG - Content Formatting Agent OUTPUT:")
-                self.logger.info(f"Output Length: {len(formatted_content) if formatted_content else 0} chars")
-                self.logger.info(f"Reasoning: {reasoning_steps}")
-                self.logger.info("=" * 80)
-                self.logger.info(formatted_content[:2000] if formatted_content else "No formatted content")
-                self.logger.info("=" * 80)
+            # Debug logging removed - verbose output moved to UI only
             
             # Calculate confidence
             confidence = self._calculate_formatting_confidence(
@@ -286,6 +271,8 @@ Apply these rules systematically to transform the text."""
                 temperature=0.1,
                 max_tokens=config.max_output_tokens
             )
+            # Clean AI metadata from output
+            formatted_text = self._clean_ai_metadata(formatted_text)
             reasoning_steps.append("Successfully applied comprehensive formatting")
             return formatted_text, reasoning_steps, tokens_used
             
@@ -309,6 +296,7 @@ Apply these rules systematically to transform the text."""
         
         try:
             formatted_text, tokens_used = self.make_api_call(messages)
+            formatted_text = self._clean_ai_metadata(formatted_text)
             reasoning_steps.append("Successfully applied table-focused formatting")
             return formatted_text, reasoning_steps, tokens_used
         except Exception as e:
@@ -375,6 +363,7 @@ Apply these rules systematically to transform the text."""
         
         try:
             formatted_text, tokens_used = self.make_api_call(messages)
+            formatted_text = self._clean_ai_metadata(formatted_text)
             reasoning_steps.append("Successfully applied standard formatting")
             return formatted_text, reasoning_steps, tokens_used
         except Exception as e:
@@ -687,4 +676,35 @@ COMPLETE DOCUMENT TO FORMAT:
             
         except Exception:
             return 0.5  # Default moderate score if calculation fails
+    
+    def _clean_ai_metadata(self, text: str) -> str:
+        """Remove AI metadata, apologies, and commentary from output."""
+        if not text:
+            return text
+            
+        # Remove common AI metadata patterns
+        patterns_to_remove = [
+            r"I'm unable to.*?(?:\.|$)",
+            r"I cannot.*?(?:\.|$)",
+            r"If you have any.*?(?:\.|$)",
+            r"feel free to ask.*?(?:\.|$)",
+            r"I apologize.*?(?:\.|$)",
+            r"Please note.*?(?:\.|$)",
+            r"It appears.*?(?:\.|$)",
+            r"Based on.*?(?:\.|$)",
+            r"\[.*?including wrapped cell content.*?\]",
+            r"Here is.*?(?:\.|$)",
+            r"The following.*?(?:\.|$)",
+        ]
+        
+        cleaned_text = text
+        for pattern in patterns_to_remove:
+            cleaned_text = re.sub(pattern, '', cleaned_text, flags=re.IGNORECASE | re.MULTILINE)
+        
+        # Clean up extra whitespace and empty lines
+        cleaned_text = re.sub(r'\n\s*\n\s*\n', '\n\n', cleaned_text)
+        cleaned_text = re.sub(r'^\s*\n', '', cleaned_text)
+        cleaned_text = cleaned_text.strip()
+        
+        return cleaned_text
     
