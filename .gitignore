@@ -50,11 +50,10 @@ Thumbs.db
 
 # Output files
 output/
+
+# Markdown files (keep only README for HuggingFace)
 *.md
 !README.md
-
-# Claude Code project file
-CLAUDE.md
 
 # Temporary files
 tmp/
@@ -65,3 +64,46 @@ temp/
 ui_simplified.py
 compare_ui.py
 test_simplified.py
+
+# OCR Cache
+.ocr_cache/
+
+# Orphaned development stats files
+optimization_stats.json
+
+# Testing infrastructure (don't push to HuggingFace)
+tests/
+pytest.ini
+test_*.py
+.coverage
+coverage.json
+.pytest_cache/
+
+# PDFs (documentation/proposals)
+*.pdf
+
+# Archive directory
+archive/
+
+# Gradio downloads
+gradio_downloads/
+
+# Development scripts
+update_huggingface.sh
+manage_gitignore.py
+unstage_and_ignore.sh
+push_to_huggingface.sh
+
+# Test requirements
+requirements-test.txt
+
+# Utility scripts (not needed for app)
+convert_to_pdf.py
+
+# README files in subdirectories (documentation only)
+api/README.md
+prompts/README.md
+evaluation/README.md
+
+# API directory (if not needed on HuggingFace - uncomment to ignore)
+# api/

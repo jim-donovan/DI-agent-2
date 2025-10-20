@@ -3,7 +3,6 @@ OpenAI-based document evaluator.
 """
 
 import base64
-import json
 import time
 from typing import Dict, Any, List, Optional
 from PIL import Image
@@ -15,18 +14,18 @@ from .prompts import EVALUATION_SYSTEM_PROMPT
 class OpenAIEvaluator(BaseEvaluator):
     """Document evaluator using OpenAI models."""
     
-    def __init__(self, openai_client, model: str = "gpt-4o-mini", logger=None):
+    def __init__(self, api_client, task: str = "evaluation", logger=None):
         """
         Initialize OpenAI evaluator.
-        
+
         Args:
-            openai_client: OpenAI client instance
-            model: Model to use for evaluation
+            api_client: APIClient instance for making API calls
+            task: Task name for APIClient routing (defaults to "evaluation")
             logger: Optional logger
         """
         super().__init__("OpenAI", logger)
-        self.client = openai_client
-        self.model = model
+        self.api_client = api_client
+        self.task = task
         
     def evaluate(self,
                  markdown_content: str,
@@ -49,14 +48,27 @@ class OpenAIEvaluator(BaseEvaluator):
             # Prepare evaluation messages
             messages = self._prepare_messages(markdown_content, pdf_images, original_text)
             
-            # Call OpenAI API
+            # Call OpenAI API through api_client
             start_time = time.time()
-            response = self.client.chat.completions.create(
-                model=self.model,
+            messages_text = messages[0]["content"] if len(messages) == 1 else str(messages)
+            response_text, tokens_used = self.api_client.make_api_call(
                 messages=messages,
                 temperature=0.1,
-                max_tokens=4000
+                max_tokens=4000,
+                task=self.task
             )
+
+            # Create compatible response object
+            response = type('obj', (object,), {
+                'choices': [type('obj', (object,), {
+                    'message': type('obj', (object,), {
+                        'content': response_text
+                    })()
+                })()],
+                'usage': type('obj', (object,), {
+                    'total_tokens': tokens_used
+                })()
+            })()
             
             elapsed = time.time() - start_time
             # Store timing info for final output only
@@ -89,7 +101,7 @@ class OpenAIEvaluator(BaseEvaluator):
                 error=str(e)
             )
     
-    def _prepare_messages(self, 
+    def _prepare_messages(self,
                          markdown_content: str,
                          pdf_images: List[Any],
                          original_text: str) -> List[Dict[str, Any]]:
@@ -97,14 +109,21 @@ class OpenAIEvaluator(BaseEvaluator):
         messages = [
             {"role": "system", "content": EVALUATION_SYSTEM_PROMPT}
         ]
-        
+
         # Build user message content
         content = []
-        
-        # Add markdown content
+
+        # Detect and explain table format used
+        format_explanation = self._detect_table_format(markdown_content)
+
+        # Add markdown content with format context
         content.append({
             "type": "text",
-            "text": f"## Processed Markdown Content\n\n{markdown_content[:50000]}"
+            "text": f"""## Processed Markdown Content
+
+{format_explanation}
+
+{markdown_content[:50000]}"""
         })
         
         # Add PDF images if available
@@ -138,7 +157,44 @@ class OpenAIEvaluator(BaseEvaluator):
         
         messages.append({"role": "user", "content": content})
         return messages
-    
+
+    def _detect_table_format(self, markdown_content: str) -> str:
+        """Detect if tables were flattened and provide context to evaluator."""
+        import re
+
+        # Check for flattened table pattern: **Label** - **Field**: Value
+        flattened_pattern = r'\*\*[^*]+\*\*\s*-\s*\*\*[^*]+\*\*:'
+        flattened_matches = re.findall(flattened_pattern, markdown_content)
+
+        # Check for pipe-style tables
+        pipe_pattern = r'\|[^|]+\|'
+        pipe_matches = re.findall(pipe_pattern, markdown_content)
+
+        if len(flattened_matches) > 10:  # Significant flattened content
+            return """### ⚠️ IMPORTANT: TABLE FORMAT USED
+
+This document uses **FLATTENED TABLE FORMAT**. Tables from the PDF have been converted to this format:
+
+**Example:**
+- PDF Table Row: `FlexFit | Physician Visit | $15/$45`
+- Markdown Format: `**FlexFit** - **Physician Visit**: $15/$45`
+
+**CRITICAL:** When comparing, search for the DATA VALUES (numbers, amounts) with their LABELS.
+DO NOT expect exact table structure. If values + labels exist → Content is PRESERVED.
+
+---
+"""
+        elif len(pipe_matches) > 10:
+            return """### ℹ️ TABLE FORMAT USED
+
+This document uses **PIPE-STYLE MARKDOWN TABLES**. Tables are preserved in standard markdown format.
+
+---
+"""
+        else:
+            return ""
+
+
     def _image_to_base64(self, image: Any) -> Optional[str]:
         """Convert image to base64 string."""
         try:

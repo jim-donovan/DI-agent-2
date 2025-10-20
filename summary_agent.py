@@ -11,9 +11,8 @@ from config import config
 class SummaryAgent(BaseAgent):
     """Agent specialized in creating benefits and eligibility summaries."""
     
-    def __init__(self, logger, api_key: str):
-        super().__init__("summary_agent", logger, api_key)
-        self.api_key = api_key
+    def __init__(self, logger, api_client=None):
+        super().__init__("summary_agent", logger, api_client)
         self.model = config.openai_model
         self.temperature = 0.1  # Low temperature for consistency
     
@@ -76,44 +75,105 @@ class SummaryAgent(BaseAgent):
     
     def _create_summary_prompt(self, content: str, title: str) -> str:
         """Create a focused prompt for benefits and eligibility extraction."""
-        
-        return f"""You are a benefits analysis expert. Extract and summarize benefits and eligibility data and information from this document.
+
+        # Truncate content to avoid token limits
+        # Estimate ~4 chars per token, leave room for prompt and response
+        # Anthropic has 200k limit, but we'll use 150k to be safe (600k chars)
+        # OpenAI GPT-4 has 128k limit, so we'll use 100k to be safe (400k chars)
+        max_content_chars = 400000  # Conservative limit for GPT-4
+
+        if len(content) > max_content_chars:
+            self.logger.log_warning(f"Content truncated from {len(content)} to {max_content_chars} characters to fit token limits")
+
+            # For very large documents, try to extract the most relevant sections
+            content = self._smart_truncate(content, max_content_chars)
+
+        return f"""You are a benefits analysis expert. Provide a summary of benefits as defined in this document. Categorize and group in a logical way that is easy to understand.
 
 DOCUMENT TITLE: {title}
 
 DOCUMENT CONTENT:
 {content}
 
-INSTRUCTIONS:
-Create a scannable, concise summary of benefits and eligibility data and information from this document.
-
-1. **ELIGIBILITY CRITERIA**: Who can qualify for these benefits?
-2. **BENEFITS OFFERED**: What specific benefits, coverage, or payments are available?
-3. **BENEFIT AMOUNTS**: Dollar amounts, percentages, or coverage limits
-4. **DURATION/TERMS**: How long benefits last or when they apply
-5. **KEY REQUIREMENTS**: Important conditions or requirements to maintain benefits
-
-FORMATTING REQUIREMENTS:
-- Start with the document title as the main heading (# {title})
-- Use clear headings with ## and ###
-- Use bullet points for lists
-- Include specific numbers, percentages, and dollar amounts when mentioned
-- Keep descriptions brief but complete
-- Only include information that is explicitly stated in the document
-- If no benefits or eligibility information is found, state "No specific benefits or eligibility criteria identified in this document."
-
-EXCLUDE:
+Make sure to exclude the following:
 - General company information
 - Contact details
 - Legal disclaimers (unless they affect eligibility)
 - Technical procedures
 - Administrative details not related to benefits/eligibility
 
-Focus on what matters most to someone trying to understand what benefits they can get and how to qualify for them."""
+Focus on what matters most to someone trying to understand what benefits they can get and the eligibility criteria they need to qualify for them."""
+
+    def _smart_truncate(self, content: str, max_chars: int) -> str:
+        """Intelligently truncate content by prioritizing benefit-related sections."""
+
+        # If content fits, return as-is
+        if len(content) <= max_chars:
+            return content
+
+        # Keywords that indicate important benefit sections
+        priority_keywords = [
+            'benefit', 'eligible', 'eligibility', 'coverage', 'payment',
+            'amount', 'qualify', 'requirement', 'criteria', 'enrollment',
+            'deductible', 'copay', 'premium', 'maximum', 'minimum',
+            'percentage', 'duration', 'period', 'effective', 'termination'
+        ]
+
+        # Split content into paragraphs
+        paragraphs = content.split('\n\n')
+
+        # Score each paragraph based on keyword density
+        scored_paragraphs = []
+        for para in paragraphs:
+            if not para.strip():
+                continue
+
+            para_lower = para.lower()
+            score = sum(1 for keyword in priority_keywords if keyword in para_lower)
+            # Boost score for paragraphs with dollar amounts
+            if '$' in para:
+                score += 2
+            # Boost score for paragraphs with percentages
+            if '%' in para:
+                score += 1
+
+            scored_paragraphs.append((score, para))
+
+        # Sort by score (highest first)
+        scored_paragraphs.sort(key=lambda x: x[0], reverse=True)
+
+        # Build truncated content prioritizing high-scoring paragraphs
+        result = []
+        result_length = 0
+
+        for score, para in scored_paragraphs:
+            para_length = len(para) + 2  # +2 for paragraph breaks
+            if result_length + para_length <= max_chars:
+                result.append(para)
+                result_length += para_length
+            elif result_length < max_chars * 0.8:  # If we have room for a partial paragraph
+                remaining_space = max_chars - result_length - 50  # Leave some buffer
+                if remaining_space > 100:
+                    truncated_para = para[:remaining_space]
+                    # Find last sentence boundary
+                    last_period = truncated_para.rfind('. ')
+                    if last_period > remaining_space * 0.5:
+                        truncated_para = truncated_para[:last_period + 1]
+                    result.append(truncated_para)
+                    break
+
+        # Join paragraphs
+        truncated_content = '\n\n'.join(result)
+
+        # Add truncation notice
+        if len(truncated_content) < len(content):
+            truncated_content += "\n\n[Content has been intelligently truncated to focus on benefit-related information...]"
+
+        return truncated_content
 
     def _calculate_summary_confidence(self, summary: str, original_content: str) -> float:
         """Calculate confidence score for the generated summary."""
-        
+
         if not summary or len(summary) < 50:
             return 0.1
         
@@ -145,27 +205,26 @@ Focus on what matters most to someone trying to understand what benefits they ca
         return max(0.1, min(1.0, confidence))
     
     def _call_openai_api(self, prompt: str) -> Optional[Dict]:
-        """Make API call to OpenAI for summary generation."""
-        
-        if not self.api_key or not self.client:
-            return None
+        """Make API call using unified client system."""
         
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": self.get_system_prompt()
-                    },
-                    {
-                        "role": "user", 
-                        "content": prompt
-                    }
-                ],
+            messages = [
+                {
+                    "role": "system",
+                    "content": self.get_system_prompt()
+                },
+                {
+                    "role": "user", 
+                    "content": prompt
+                }
+            ]
+            
+            # Use unified client through make_api_call
+            response_content, tokens_used = self.make_api_call(
+                messages=messages,
+                task="main",  # Use main model for summaries
                 temperature=self.temperature,
-                max_tokens=1000,  # Limit for concise summaries
-                top_p=0.9
+                max_tokens=4096  # Increased from 1000 to allow longer summaries
             )
             
             # Convert to dict format for compatibility
@@ -173,12 +232,12 @@ Focus on what matters most to someone trying to understand what benefits they ca
                 "choices": [
                     {
                         "message": {
-                            "content": response.choices[0].message.content
+                            "content": response_content
                         }
                     }
                 ],
                 "usage": {
-                    "total_tokens": response.usage.total_tokens if response.usage else 0
+                    "total_tokens": tokens_used
                 }
             }
             

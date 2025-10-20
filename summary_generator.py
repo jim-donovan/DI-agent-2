@@ -10,6 +10,7 @@ from typing import Optional, Tuple
 from logger import ProcessingLogger
 from summary_agent import SummaryAgent
 from config import config
+from api_client import APIClient
 
 class SummaryGenerator:
     """Generates and manages document summaries with export capabilities."""
@@ -20,7 +21,8 @@ class SummaryGenerator:
         self.summary_enabled = bool(self.api_key)
         
         if self.summary_enabled:
-            self.summary_agent = SummaryAgent(logger, self.api_key)
+            api_client = APIClient(config)
+            self.summary_agent = SummaryAgent(logger, api_client)
             # Debug info - store for final output only
             self.init_status = "Summary generator initialized (AI-powered)"
         else:
@@ -188,11 +190,14 @@ The following key information was extracted from the document:
         try:
             import markdown
             import weasyprint
-            
-            # Convert markdown to HTML
-            html_content = markdown.markdown(summary_content)
-            
-            # Add basic styling
+
+            # Convert markdown to HTML with table support
+            html_content = markdown.markdown(
+                summary_content,
+                extensions=['tables', 'fenced_code', 'nl2br']
+            )
+
+            # Add basic styling with table support
             styled_html = f"""
             <!DOCTYPE html>
             <html>
@@ -200,10 +205,10 @@ The following key information was extracted from the document:
                 <meta charset="utf-8">
                 <title>Benefits and Eligibility Summary</title>
                 <style>
-                    body {{ 
-                        font-family: Arial, sans-serif; 
-                        margin: 40px; 
-                        line-height: 1.6; 
+                    body {{
+                        font-family: Arial, sans-serif;
+                        margin: 40px;
+                        line-height: 1.6;
                         color: #333;
                     }}
                     h1 {{ color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }}
@@ -212,6 +217,31 @@ The following key information was extracted from the document:
                     ul, ol {{ margin-left: 20px; }}
                     li {{ margin-bottom: 5px; }}
                     hr {{ margin: 30px 0; border: 1px solid #ecf0f1; }}
+                    table {{
+                        border-collapse: collapse;
+                        width: 100%;
+                        margin: 20px 0;
+                        border: 1px solid #ddd;
+                    }}
+                    th {{
+                        background-color: #3498db;
+                        color: white;
+                        padding: 12px;
+                        text-align: left;
+                        border: 1px solid #2980b9;
+                        font-weight: bold;
+                    }}
+                    td {{
+                        padding: 10px;
+                        border: 1px solid #ddd;
+                        text-align: left;
+                    }}
+                    tr:nth-child(even) {{
+                        background-color: #f9f9f9;
+                    }}
+                    tr:hover {{
+                        background-color: #f1f1f1;
+                    }}
                 </style>
             </head>
             <body>

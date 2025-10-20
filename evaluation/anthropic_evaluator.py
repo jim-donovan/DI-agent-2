@@ -3,30 +3,29 @@ Anthropic-based document evaluator.
 """
 
 import base64
-import json
 import time
 from typing import Dict, Any, List, Optional
 from PIL import Image
 import io
 
 from .base import BaseEvaluator, EvaluationResult, Recommendation
-from .prompts import EVALUATION_SYSTEM_PROMPT
+from .prompts import ANTHROPIC_EVALUATION_SYSTEM_PROMPT
 
 class AnthropicEvaluator(BaseEvaluator):
     """Document evaluator using Anthropic Claude models."""
     
-    def __init__(self, anthropic_client, model: str = "claude-opus-4-1-20250805", logger=None):
+    def __init__(self, api_client, task: str = "anthropic_evaluation", logger=None):
         """
         Initialize Anthropic evaluator.
-        
+
         Args:
-            anthropic_client: Anthropic client instance
-            model: Model to use for evaluation
+            api_client: APIClient instance for making API calls
+            task: Task name for APIClient routing (defaults to "anthropic_evaluation")
             logger: Optional logger
         """
         super().__init__("Anthropic", logger)
-        self.client = anthropic_client
-        self.model = model
+        self.api_client = api_client
+        self.task = task
         
     def evaluate(self,
                  markdown_content: str,
@@ -49,27 +48,27 @@ class AnthropicEvaluator(BaseEvaluator):
             # Prepare evaluation messages
             messages = self._prepare_messages(markdown_content, pdf_images, original_text)
             
-            # Call Anthropic API with streaming for long responses
+            # Call Anthropic API through api_client
             start_time = time.time()
-            
-            with self.client.messages.stream(
-                model=self.model,
+
+            response_text, tokens_used = self.api_client.make_api_call(
                 messages=messages,
-                max_tokens=4000,
                 temperature=0.1,
-                system=EVALUATION_SYSTEM_PROMPT
-            ) as stream:
-                response_text = ""
-                for text in stream.text_stream:
-                    response_text += text
-            
+                max_tokens=8192,  # Increased from 4000 to match config
+                task=self.task
+            )
+
             elapsed = time.time() - start_time
             # Store timing info for final output only
             self._last_evaluation_time = elapsed
-            
+
             # Parse response
             parsed = self.parse_evaluation_response(response_text)
-            
+
+            # Log if parsing failed
+            if parsed.get("summary") == "Unable to parse evaluation response":
+                self.log(f"⚠️ Failed to parse response. Full text: {response_text}", "error")
+
             # Create result
             return EvaluationResult(
                 missing_items=parsed.get("missing_items", []),
@@ -99,20 +98,26 @@ class AnthropicEvaluator(BaseEvaluator):
                          original_text: str) -> List[Dict[str, Any]]:
         """Prepare messages for Anthropic API."""
         content = []
-        
+
+        # Add system prompt as first message
+        content.append({
+            "type": "text",
+            "text": ANTHROPIC_EVALUATION_SYSTEM_PROMPT + "\n\n---\n\n"
+        })
+
         # Add markdown content
         content.append({
             "type": "text",
             "text": f"## Processed Markdown Content\n\n{markdown_content[:50000]}"
         })
-        
+
         # Add PDF images if available
         if pdf_images:
             content.append({
                 "type": "text",
                 "text": "\n\n## Original PDF Pages\nCompare the following PDF pages against the markdown:"
             })
-            
+
             for i, image in enumerate(pdf_images[:10], 1):  # Limit to 10 pages
                 image_data = self._prepare_image_for_anthropic(image)
                 if image_data:
@@ -124,14 +129,20 @@ class AnthropicEvaluator(BaseEvaluator):
                         "type": "image",
                         "source": image_data
                     })
-        
+
         # Add original text for reference
         if original_text:
             content.append({
                 "type": "text",
                 "text": f"\n\n## Original Extracted Text (for reference)\n\n{original_text[:10000]}"
             })
-        
+
+        # Add explicit instruction to return JSON
+        content.append({
+            "type": "text",
+            "text": "\n\n**IMPORTANT: You must respond with ONLY valid JSON in the exact format specified above. Do not include any explanatory text before or after the JSON.**"
+        })
+
         return [{"role": "user", "content": content}]
     
     def _prepare_image_for_anthropic(self, image: Any) -> Optional[Dict[str, str]]:

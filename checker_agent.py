@@ -4,48 +4,49 @@ This is a cleaner, more maintainable version using the evaluation module.
 """
 
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 
 from agent_base import BaseAgent, AgentResponse
 from logger import ProcessingLogger
 from config import config
+from api_client import APIClient
 
 # Import modular evaluation components
 from evaluation import (
     OpenAIEvaluator,
     AnthropicEvaluator,
-    EvaluationComparator,
-    EvaluationResult
+    EvaluationComparator
 )
 
 class CheckerAgent(BaseAgent):
     """Agent specialized for quality evaluation using modular evaluators."""
     
-    def __init__(self, logger: ProcessingLogger, openai_api_key: str = None):
-        """Initialize checker agent with modular evaluators."""
-        super().__init__("checker_agent", logger, openai_api_key or config.openai_api_key)
+    def __init__(self, logger: ProcessingLogger, api_client: Optional[APIClient] = None):
+        """Initialize checker agent with modular evaluators.
         
-        # Initialize evaluators (self.client is set by BaseAgent)
+        Args:
+            logger: Logger instance for recording activities
+            api_client: Optional APIClient instance (will be created if not provided)
+        """
+        super().__init__("checker_agent", logger, api_client=api_client)
+        
+        # Initialize evaluators with the API client
         self.openai_evaluator = OpenAIEvaluator(
-            self.client,  # Use self.client from BaseAgent
-            model="gpt-4o-mini",
+            self.api_client,
+            task="evaluation",
             logger=logger
         )
         
-        # Initialize Anthropic evaluator if API key available
+        # Initialize Anthropic evaluator if API key is configured
         self.anthropic_evaluator = None
         if config.anthropic_api_key:
             try:
-                import anthropic
-                client = anthropic.Anthropic(api_key=config.anthropic_api_key)
                 self.anthropic_evaluator = AnthropicEvaluator(
-                    client,
-                    model=config.anthropic_model,  # Use model from config
+                    self.api_client,
+                    task="anthropic_evaluation",
                     logger=logger
                 )
-                self.logger.log(f"✅ Anthropic evaluator initialized with model: {config.anthropic_model}")
-            except ImportError as e:
-                self.logger.log_error(f"Anthropic library not installed: {e}")
+                self.logger.log("✅ Anthropic evaluator initialized with task-based routing")
             except Exception as e:
                 self.logger.log_error(f"Failed to initialize Anthropic evaluator: {e}")
                 import traceback
@@ -53,7 +54,6 @@ class CheckerAgent(BaseAgent):
         else:
             self.logger.log_warning("No Anthropic API key found - dual evaluation disabled")
         
-        # Initialize comparator
         self.comparator = EvaluationComparator(logger=logger)
     
     def get_system_prompt(self) -> str:

@@ -6,12 +6,13 @@ Replaces rule-based corruption detection with AI-powered visual and content anal
 
 import time
 import re
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional
 from enum import Enum
 
 from agent_base import BaseAgent, AgentResponse
 from logger import ProcessingLogger
 from config import config
+from api_client import APIClient
 
 class OCRMethod(Enum):
     """OCR processing methods."""
@@ -22,8 +23,14 @@ class OCRMethod(Enum):
 class CorruptionAgent(BaseAgent):
     """Agent specialized for intelligent document evaluation and OCR routing."""
     
-    def __init__(self, logger: ProcessingLogger, api_key: str):
-        super().__init__("corruption_agent", logger, api_key)
+    def __init__(self, logger: ProcessingLogger, api_client: Optional[APIClient] = None):
+        """Initialize the CorruptionAgent.
+        
+        Args:
+            logger: Logger instance for recording activities
+            api_client: Optional APIClient instance (will be created if not provided)
+        """
+        super().__init__("corruption_agent", logger, api_client=api_client)
         
     def get_system_prompt(self) -> str:
         """Get the system prompt for corruption analysis."""
@@ -227,10 +234,41 @@ Be decisive and consistent. Prioritize accuracy over speed."""
             analysis["text_quality"] = "fair"
         
         return analysis
-    
+
+    def _optimize_image_for_visual_analysis(self, image, max_dimension: int = 1536):
+        """Optimize image for visual analysis (layout detection doesn't need full resolution).
+
+        Args:
+            image: PIL Image to optimize
+            max_dimension: Maximum width or height (default 1536 for visual analysis)
+
+        Returns:
+            Optimized PIL Image
+        """
+        from PIL import Image
+
+        # Convert to RGB if necessary
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+
+        # Calculate if resizing is needed
+        width, height = image.size
+        if width > max_dimension or height > max_dimension:
+            # Calculate scaling factor
+            scale = min(max_dimension / width, max_dimension / height)
+            new_width = int(width * scale)
+            new_height = int(height * scale)
+
+            # Use high-quality downsampling
+            resized_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            self.logger.log_step(f"Optimized image for visual analysis: {width}x{height} → {new_width}x{new_height}")
+            return resized_image
+
+        return image
+
     def _analyze_visual_elements(self, page_image, extracted_text: str) -> Dict[str, Any]:
         """Use vision model to analyze visual elements in the page image."""
-        if not page_image or not self.client:
+        if not page_image or not self.api_client:
             return {"visual_analysis_available": False}
         
         try:
@@ -253,15 +291,19 @@ Respond with JSON:
     "text_readability": "poor|fair|good|excellent"
 }"""
 
-            # Convert PIL Image to base64 string
+            # Convert PIL Image to base64 string with optimization
             import base64
             import io
-            
+            from PIL import Image
+
             if hasattr(page_image, 'save'):  # It's a PIL Image
+                # Optimize image for visual analysis (layout detection doesn't need full resolution)
+                optimized_image = self._optimize_image_for_visual_analysis(page_image)
+
                 buffer = io.BytesIO()
-                page_image.save(buffer, format='PNG')
+                optimized_image.save(buffer, format='JPEG', quality=85)
                 img_base64 = base64.b64encode(buffer.getvalue()).decode()
-                image_url = f"data:image/png;base64,{img_base64}"
+                image_url = f"data:image/jpeg;base64,{img_base64}"
             else:
                 image_url = page_image  # Assume it's already a data URL
             
@@ -281,14 +323,11 @@ Respond with JSON:
             
             response_text, tokens_used = self.make_api_call(
                 messages,
-                model="gpt-4o",  # Use vision-capable model
-                temperature=0.1,
-                max_tokens=500
+                task="corruption"
             )
             
             # Parse JSON response - handle markdown code blocks
             import json
-            import re
             
             try:
                 # Clean up the response - remove markdown code blocks if present
@@ -297,12 +336,46 @@ Respond with JSON:
                 # Remove ```json and ``` if present
                 if cleaned_response.startswith('```json'):
                     cleaned_response = cleaned_response[7:]  # Remove ```json
-                if cleaned_response.startswith('```'):
+                elif cleaned_response.startswith('```'):
                     cleaned_response = cleaned_response[3:]   # Remove ```
                 if cleaned_response.endswith('```'):
                     cleaned_response = cleaned_response[:-3]  # Remove trailing ```
                 
                 cleaned_response = cleaned_response.strip()
+                
+                # Try to extract just the JSON part if there's extra content
+                # Look for the main JSON object boundaries
+                if cleaned_response.startswith('{'):
+                    # Find the matching closing brace for the main JSON object
+                    brace_count = 0
+                    json_end = 0
+                    for i, char in enumerate(cleaned_response):
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                            if brace_count == 0:
+                                json_end = i + 1
+                                break
+                    
+                    if json_end > 0:
+                        cleaned_response = cleaned_response[:json_end]
+                
+                # Try to fix common JSON issues
+                # Check if response was truncated (doesn't end with })
+                if not cleaned_response.endswith('}'):
+                    # Handle unterminated strings
+                    if cleaned_response.count('"') % 2 == 1:
+                        # Odd number of quotes means unterminated string
+                        cleaned_response += '"'
+                    
+                    # Try to close any open structures
+                    open_brackets = cleaned_response.count('[') - cleaned_response.count(']')
+                    open_braces = cleaned_response.count('{') - cleaned_response.count('}')
+                    
+                    # Add closing brackets/braces
+                    cleaned_response += ']' * open_brackets
+                    cleaned_response += '}' * open_braces
                 
                 visual_analysis = json.loads(cleaned_response)
                 visual_analysis["tokens_used"] = tokens_used
@@ -310,11 +383,19 @@ Respond with JSON:
                 return visual_analysis
                 
             except json.JSONDecodeError as e:
-                self.logger.log_error(f"Failed to parse visual analysis JSON: {response_text[:200]}...")
+                self.logger.log_warning(f"Failed to parse visual analysis JSON: {str(e)}")
+                # Try to extract key information even if JSON is malformed
+                has_tables = 'true' in response_text.lower() and 'has_tables' in response_text
+                has_charts = 'true' in response_text.lower() and 'has_charts' in response_text
+                has_forms = 'true' in response_text.lower() and 'has_forms' in response_text
+                
                 return {
                     "visual_analysis_available": False,
+                    "has_tables": has_tables,
+                    "has_charts": has_charts,
+                    "has_forms": has_forms,
                     "error": f"JSON parse error: {str(e)}",
-                    "raw_response": response_text[:500]
+                    "fallback_parsing": True
                 }
             
         except Exception as e:
@@ -399,12 +480,18 @@ Respond with JSON:
             }
         
         # Medium priority conditions
-        if ("poor_text" in detected_elements or 
+        if ("poor_text" in detected_elements or
             "poor_image_quality" in detected_elements or
-            text_analysis.get("quality_score", 1.0) < 0.7):
+            text_analysis.get("quality_score", 1.0) < 0.7 or
+            text_analysis.get("text_quality") == "missing"):
+
+            # Special case: if text is missing/minimal, this is likely an image-based PDF
+            if text_analysis.get("text_quality") == "missing":
+                reasoning_parts.append("minimal/no text extracted - likely image-based document")
+
             return {
                 "recommended_method": OCRMethod.VISION.value,
-                "confidence": base_confidence - 0.1,
+                "confidence": base_confidence if text_analysis.get("text_quality") == "missing" else base_confidence - 0.1,
                 "reasoning": f"Text quality issues detected: {', '.join(reasoning_parts)}",
                 "detected_elements": detected_elements,
                 "visual_complexity": visual_complexity

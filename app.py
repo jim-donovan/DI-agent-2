@@ -34,9 +34,9 @@ def main():
     print(f"📋 Vision threshold: {config.vision_corruption_threshold}")
     print(f"🔧 Max vision calls: {config.max_vision_calls_per_doc}")
     print(f"🖼️  DPI: {config.dpi}")
-    print(f"🤖 Vision model: {config.openai_model}")
+    print(f"🤖 Vision model: {config.vision_model}")
     print(f"📝 Temperature: {config.temperature}")
-    print(f"💡 Focus: Vision OCR priority, accuracy, speed")
+    print("💡 Focus: Vision OCR priority, accuracy, speed")
     # Using main UI interface
     print("=" * 50)
     
@@ -79,6 +79,7 @@ if __name__ == "__main__":
     if running_on_spaces():
         pass
     else:
+        # Always use share link for local development to fix download blocking issues
         launch_kwargs.update({"server_name": "0.0.0.0", "server_port": 7860, "share": True})
 
     demo.queue(max_size=20).launch(**launch_kwargs)

@@ -8,8 +8,9 @@ from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass, field
 import time
 from datetime import datetime
-import openai
 from logger import ProcessingLogger
+
+from api_client import APIClient
 
 
 @dataclass
@@ -41,19 +42,24 @@ class AgentResponse:
 class BaseAgent(ABC):
     """Base class for OCR pipeline agents."""
     
-    def __init__(self, agent_id: str, logger: ProcessingLogger, api_key: str):
+    def __init__(self, agent_id: str, logger: ProcessingLogger, api_client: APIClient = None):
+        """Initialize the base agent.
+        
+        Args:
+            agent_id: Unique identifier for the agent
+            logger: Logger instance for recording agent activities
+            api_client: Optional API client instance (will be created if not provided)
+        """
         self.agent_id = agent_id
         self.logger = logger
         
-        # Initialize OpenAI client with explicit parameters only
-        if api_key and api_key.strip():
-            self.client = openai.OpenAI(
-                api_key=api_key,
-                timeout=30.0,
-                max_retries=2
-            )
+        # Initialize API client
+        if api_client is None:
+            from config import config
+            self.api_client = APIClient(config)
         else:
-            self.client = None
+            self.api_client = api_client
+            
         self.state = AgentState(
             agent_id=agent_id,
             session_id=f"session_{int(time.time())}"
@@ -104,35 +110,44 @@ class BaseAgent(ABC):
             
         return max(0.0, min(1.0, base_confidence))
     
-    def make_api_call(self, messages: List[Dict[str, Any]], model: str = "gpt-4o", 
-                     temperature: float = 0.1, max_tokens: int = None) -> Tuple[str, int]:
-        """Make API call with error handling and token tracking."""
-        if not self.client:
-            raise ValueError("OpenAI client not initialized - API key may be missing")
+    def make_api_call(self, messages: List[Dict[str, Any]], model: str = None, 
+                     temperature: float = None, max_tokens: int = None, task: str = "main") -> Tuple[str, int]:
+        """Make API call using the configured API client.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content'
+            model: Override the default model for the task
+            temperature: Override the default temperature for the task
+            max_tokens: Override the default max tokens for the task
+            task: The task type (e.g., 'main', 'summarization', 'analysis')
             
+        Returns:
+            Tuple of (response_content, tokens_used)
+            
+        Raises:
+            Exception: If the API call fails
+        """
         try:
-            # Use config max_tokens if not specified
-            if max_tokens is None:
-                from config import config
-                max_tokens = config.max_output_tokens
-                
-            response = self.client.chat.completions.create(
-                model=model,
+            content, tokens_used = self.api_client.make_api_call(
                 messages=messages,
+                model=model,
                 temperature=temperature,
-                max_tokens=max_tokens
+                max_tokens=max_tokens,
+                task=task
             )
-            
-            content = response.choices[0].message.content
-            tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else 0
-            
+
+            # Check if response was truncated
+            if hasattr(self.api_client, 'last_response_truncated') and self.api_client.last_response_truncated:
+                self.logger.log_warning(f"Agent {self.agent_id} response was truncated")
+
+            self.logger.log_step(f"Agent {self.agent_id} completed API call")
             return content, tokens_used
             
         except Exception as e:
             error_msg = str(e)
             # More specific error logging
             if "timeout" in error_msg.lower():
-                self.logger.log_error(f"Agent {self.agent_id} API call timed out (30s limit)")
+                self.logger.log_error(f"Agent {self.agent_id} API call timed out")
             elif "rate" in error_msg.lower():
                 self.logger.log_error(f"Agent {self.agent_id} rate limited")
             else:
@@ -182,6 +197,20 @@ class BaseAgent(ABC):
             context_parts.append(f"Average confidence: {avg_confidence:.2f}")
             
         return "\n".join(context_parts) if context_parts else "No previous context"
+
+    def cleanup(self):
+        """
+        Cleanup agent resources.
+
+        Base implementation does nothing - subclasses should override
+        if they have resources to cleanup (thread pools, file handles, etc.).
+
+        Example override:
+            def cleanup(self):
+                super().cleanup()  # Call base cleanup if needed
+                # Your cleanup code here
+        """
+        pass  # Base implementation - subclasses override as needed
 
 
 class AgentOrchestrator:

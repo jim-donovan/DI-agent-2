@@ -113,7 +113,6 @@ class CorruptionDetector:
             # Pattern: Multiple capitalized phrases separated by spaces/tabs
             if i < len(lines) - 1:
                 next_line = lines[i+1].strip() if i+1 < len(lines) else ""
-                # Check for patterns like "FlexFit Select    iDirect Series"
                 if re.findall(r'[A-Z][a-zA-Z]+\s+[A-Z][a-zA-Z]+', stripped) and len(stripped.split()) >= 2:
                     # Check if next line has sub-headers or values
                     if next_line and ('$' in next_line or '%' in next_line or re.search(r'\d', next_line)):

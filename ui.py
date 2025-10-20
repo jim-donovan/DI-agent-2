@@ -4,16 +4,17 @@ Clean, modern UI for the OCR processor
 """
 
 import gradio as gr
-import base64
-import os
 import tempfile
 import random
+import shutil
+import time
 from pathlib import Path
 from datetime import datetime
 from processor_optimized import OptimizedDocumentProcessor as DocumentProcessor
 from config import config
 from summary_generator import SummaryGenerator
 from utils import extract_document_title, get_recommendation_color
+from metadata_reporter import MetadataReporter
 
 class OCRInterface:
     """Gradio interface for OCR processing."""
@@ -31,154 +32,128 @@ class OCRInterface:
         "We need a new fuse...",
         "Have a good day.",
         "Upgrading Windows, your PC will restart several times...",
-        "640K ought to be enough for anybody",
         "The architects are still drafting...",
-        "The bits are breeding...",
-        "We're building the buildings as fast as we can...",
-        "Would you prefer chicken, steak, or tofu?",
-        "Pay no attention to the man behind the curtain...",
+        "Mining some bitcoins...",
+        "Pay no heed to the man behind the curtain...",
         "Enjoying the elevator music?",
-        "Please wait while the little elves draw your map...",
-        "Don't worry - a few bits tried to escape, but we caught them...",
         "And dream of faster computers...",
+        "Turns out 'attention is all you need' was slightly optimistic...",
+        "We scaled. The laws didn't mention latency <oops>",
         "Checking the gravitational constant in your locale...",
-        "Go ahead -- hold your breath!",
         "Hum something loud while others stare...",
-        "You're not in Kansas anymore...",
+        "We're not in Kansas anymore...",
         "The server is powered by a lemon and two electrodes...",
         "We're testing your patience...",
-        "As if you had any other choice...",
         "Follow the white rabbit...",
+        "Summoning your invisible 6-foot assistant...",
         "Why don't you order a sandwich?",
         "While the satellite moves into position...",
         "The bits are flowing slowly today...",
-        "Dig on the 'X' for buried treasure... ARRR!",
         "It's still faster than you could draw it...",
-        "The last time I tried this the monkey didn't survive. Let's hope it works better this time.",
+        "Looking for sense of humor, please hold on.",
         "I should have had a V8 this morning...",
         "My other loading screen is much faster.",
-        "Testing on Timmy... We're going to need another Timmy.",
-        "Reconfoobling energymotron...",
+        "Peopled version: testing on Tommy... we're going to need another Tommy.",
+        "End of line...",
         "(Insert quarter)",
         "Are we there yet?",
         "Just count to 10...",
         "Why so serious?",
         "It's not you. It's me.",
-        "Counting backwards from Infinity...",
-        "Don't panic...",
-        "Embiggening prototypes...",
+        "Fine-tuning your expectations...",
+        "LLM: Large Loading Model...",
+        "The version I have of this on local has much funnier load screens.",
         "Do not run! We are your friends!",
         "Do you come here often?",
         "Warning: Don't set yourself on fire.",
-        "We're making you a cookie.",
+        "Loading humorous message ... please wait",
         "Creating time-loop inversion field...",
-        "Spinning the wheel of fortune...",
-        "Loading the enchanted bunny...",
-        "Computing chance of success...",
+        "WARNING: SYSTEM FAILURE! Unable to find sense of humor. Aborting...",
         "I'm sorry Dave, I can't do that.",
         "Looking for exact change...",
         "All your web browser are belong to us...",
         "All I really need is a kilobit...",
-        "I feel like im supposed to be loading something...",
         "What do you call 8 Hobbits? A Hobbyte!",
         "Should have used a compiled language...",
         "Is this Windows?",
         "Adjusting flux capacitor...",
-        "Please wait until the sloth starts moving...",
-        "Don't break your screen yet!",
         "I swear it's almost done.",
-        "Let's take a mindfulness minute...",
-        "Unicorns are at the end of this road, I promise.",
         "Listening for the sound of one hand clapping...",
         "Keeping all the 1's and removing all the 0's...",
-        "Putting the icing on the cake. The cake is not a lie...",
-        "Cleaning off the cobwebs...",
+        "Attention mechanism is distracted. Back in a moment...",
         "Making sure all the i's have dots...",
         "We are not liable for any broken screens as a result of waiting.",
-        "We need more dilithium crystals...",
-        "Where did all the internets go?",
+        "We're going to need more dilithium crystals...",
+        "I'm guessing gravitational forces vary depending on distance from the core",
         "Connecting Neurotoxin Storage Tank...",
         "Granting wishes...",
         "Time flies when you're having fun...",
         "Get some coffee and come back in ten minutes...",
         "Spinning the hamster wheel...",
         "99 bottles of beer on the wall...",
-        "Stay awhile and listen...",
+        "Somewhere, an NVIDIA GPU is crying...",
+        "DEVIATION IS A SERIOUS VIOLATION (model has left the chat)...",
         "Be careful not to step in the git-gui...",
+        "Our moat: we prompt it dIfFerReNtLy...",
+        "Dammit Jim!",
         "You shall not pass! Yet...",
         "Load it and they will come...",
-        "Convincing AI not to turn evil...",
         "There is no spoon. Because we are not done loading it...",
         "Your left thumb prints are being processed...",
-        "Shaking the snow globe...",
-        "Computing the secret to life, the universe, and everything...",
+        "Problems may exist between keyboard and chair...",
+        "Computing the secret to life, the universe, and everything...[42 chunks later]",
         "Mining some bitcoins...",
         "Downloading more RAM...",
         "Updating to Windows Vista...",
-        "Deleting System32 folder...",
-        "Hiding all the passwords under the rug...",
         "Alert! User detected. Please wait...",
         "Searching for plot device...",
-        "Trying to sort in O(n)...",
         "Laughing at your browser's expectations...",
-        "Sending data to the NS... I mean, our servers.",
-        "Looking for sense of humour, please hold on...",
-        "Please wait while the intern refills his coffee...",
+        "The severity of your issue is always lower than you expected...",
+        "Please wait while the intern refills his coffee. Yes you, Alastair...",
         "A different error message? Finally, some progress!",
-        "Hold on while we wrap up our git together...sorry",
+        "Hold on while we git our shit together...sorry",
         "Please hold on as we reheat our coffee...",
-        "Kindly hold on as we convert this bug to a feature...",
-        "Kindly hold on as our intern quits vim...",
+        "Kindly hold while we convert this bug to a feature...",
         "Winter is coming...",
         "Installing dependencies...",
-        "Switching to the latest JS framework...",
         "Distracted by cat gifs...",
         "Finding someone to hold my beer...",
-        "BRB, working on my side project...",
         "@todo Insert witty loading message...",
         "Let's hope it's worth the wait...",
-        "Aw, snap! Not..",
+        "Aw, snap! jk...",
         "Ordering 1s and 0s...",
         "Dividing by zero...",
         "If I'm not back in five minutes, just wait longer...",
         "Web developers do it with <style>",
         "Optimizing the optimizer...",
-        "Debugging the debugger...",
+        "Teaching the model to count... (it's gotten to 17 so far)",
         "Reading Terms and Conditions for you...",
-        "Digesting cookies...",
+        "Is there antibody out there?",
+        "In 1905, Einstein published a theory about space. It was about time ...",
         "How about this weather, eh?",
-        "Building a wall...",
+        "Inference: fast. User validation: bUfFeRiNg...",
         "Everything in this universe is either a potato or not a potato...",
         "The severity of the itch is inversely proportional to the ability to reach it.",
         "The shortest distance between two points is under construction.",
-        "Counting to 1337... 1335... 1336... 1337!",
+        "I'm going to count to three and then you can stop. 99... 98... 97... 96 ...",
         "I'm not slacking off. My code's compiling.",
         "Compiling the compiler...",
         "Caching the cache...",
-        "Checking if 2 + 2 still equals 4...",
-        "Proving P=NP...",
         "Entangling superstrings...",
+        "Running A/B tests (AB approves this message...)",
         "Twiddling thumbs...",
         "Searching for Schrodinger's Cat...",
-        "Attempting to lock thread, please wait...",
-        "Welcome to the desert of the real...",
-        "Aligning covariance matrices...",
+        "Organic chemistry is hard. It creates alkynes of problems",
         "Constructing additional pylons...",
-        "Roping some seaturtles...",
-        "Locating the required gigapixels to render...",
-        "Spinning up the hamster...",
         "Shovelling coal into the server...",
         "Programming the flux capacitor...",
         "The elves are having labor troubles...",
         "How did you get here?",
-        "Wait, do you smell something burning?",
         "Computing the last digit of pi...",
         "Waiting for the system admin to hit enter...",
-        "All your base are belong to us...",
-        "Counting the sheep in the sky...",
-        "We're going to need a bigger boat...",
-        "Catching em' all...",
-        "Constructing additional pylons..."
+        "The model is 99% loaded. The last 1% is where all the intelligence lives...",
+        "I'M ON A BOAT!",
+        "Catching 'em all..."
     ]
     
     def __init__(self):
@@ -186,14 +161,43 @@ class OCRInterface:
         self.summary_generator = SummaryGenerator(self.processor.logger)
         self.current_summary = ""
         self.current_document_title = ""
+        self.current_evaluation = ""
         # Debug data storage
         self.raw_ocr_output = ""
-    
+        # Excel configuration storage
+        self.excel_structure_config = None
+        # Vision recommendations storage
+        self.vision_recommendations = None
+        self.current_uploaded_file = None
+
+        # Create local downloads directory for Gradio (if enabled)
+        self.use_local_downloads = config.use_local_downloads_directory
+        if self.use_local_downloads:
+            self.downloads_dir = Path("gradio_downloads")
+            self.downloads_dir.mkdir(exist_ok=True)
+        else:
+            self.downloads_dir = None
+
+    def _get_download_path(self, original_path: str) -> str:
+        """Get the appropriate download path based on configuration."""
+        if not original_path:
+            return None
+
+        if self.use_local_downloads and self.downloads_dir:
+            # Copy to local directory for Gradio serving
+            local_file = self.downloads_dir / Path(original_path).name
+            shutil.copy2(original_path, local_file)
+            return str(local_file)
+        else:
+            # Use original path (for HuggingFace deployment)
+            return original_path
+
     def _load_animation_html(self):
         """Load the processing animation with CSS-based message cycling."""
         # Get multiple messages for CSS animation cycling
-        messages_sample = random.sample(self.LOADING_MESSAGES, min(25, len(self.LOADING_MESSAGES)))
-        
+        # Use 80 messages for ~5.7 minutes of unique content (80 * 4.3s = 344s)
+        messages_sample = random.sample(self.LOADING_MESSAGES, min(80, len(self.LOADING_MESSAGES)))
+
         # Calculate animation duration (4.3 seconds per message - the ultimate sweet spot!)
         total_duration = len(messages_sample) * 4.3
         message_show_percent = (100 / len(messages_sample)) * 0.8  # Show for 80% of each message slot
@@ -207,25 +211,25 @@ class OCRInterface:
                     100% {{ transform: rotate(360deg) translateX(80px) rotate(-360deg); }}
                 }}
                 @keyframes pulse {{
-                    0%, 100% {{ 
+                    0%, 100% {{
                         transform: scale(1);
                         opacity: 0.8;
                     }}
-                    50% {{ 
+                    50% {{
                         transform: scale(1.1);
                         opacity: 1;
                     }}
                 }}
                 @keyframes glow {{
-                    0%, 100% {{ 
-                        box-shadow: 0 0 20px rgba(6, 182, 212, 0.6),
-                                    0 0 40px rgba(6, 182, 212, 0.4),
-                                    0 0 60px rgba(6, 182, 212, 0.2);
+                    0%, 100% {{
+                        box-shadow: 0 0 20px rgba(223, 87, 159, 0.6),
+                                    0 0 40px rgba(236, 110, 83, 0.4),
+                                    0 0 60px rgba(191, 200, 90, 0.2);
                     }}
-                    50% {{ 
-                        box-shadow: 0 0 30px rgba(6, 182, 212, 0.8),
-                                    0 0 60px rgba(6, 182, 212, 0.6),
-                                    0 0 90px rgba(6, 182, 212, 0.4);
+                    50% {{
+                        box-shadow: 0 0 30px rgba(223, 87, 159, 0.8),
+                                    0 0 60px rgba(236, 110, 83, 0.6),
+                                    0 0 90px rgba(191, 200, 90, 0.4);
                     }}
                 }}
                 @keyframes messageRotate {{
@@ -245,10 +249,10 @@ class OCRInterface:
                     width: 120px;
                     height: 120px;
                     margin: -60px 0 0 -60px;
-                    background: radial-gradient(circle at 30% 30%, #22d3ee, #0891b2);
+                    background: linear-gradient(135deg, #DF579F 0%, #EC6E53 50%, #BFC85A 100%);
                     border-radius: 50%;
                     animation: pulse 4.3s ease-in-out infinite, glow 4.3s ease-in-out infinite;
-                    box-shadow: 0 0 40px rgba(6, 182, 212, 0.6);
+                    box-shadow: 0 0 40px rgba(236, 110, 83, 0.6);
                 }}
                 .orbit-ring {{
                     position: absolute;
@@ -257,7 +261,7 @@ class OCRInterface:
                     width: 160px;
                     height: 160px;
                     margin: -80px 0 0 -80px;
-                    border: 2px solid rgba(6, 182, 212, 0.2);
+                    border: 2px solid rgba(236, 110, 83, 0.2);
                     border-radius: 50%;
                 }}
                 .orbiting-dot {{
@@ -267,9 +271,9 @@ class OCRInterface:
                     width: 20px;
                     height: 20px;
                     margin: -10px 0 0 -10px;
-                    background: #06b6d4;
+                    background: linear-gradient(135deg, #DF579F, #EC6E53);
                     border-radius: 50%;
-                    box-shadow: 0 0 20px rgba(6, 182, 212, 0.8);
+                    box-shadow: 0 0 20px rgba(223, 87, 159, 0.8);
                 }}
                 .orbiting-dot-1 {{
                     animation: orbit 4.3s linear infinite;
@@ -299,7 +303,7 @@ class OCRInterface:
                     white-space: nowrap;
                     animation: messageRotate {total_duration}s infinite;
                 }}
-                {"".join(f".cycling-messages span:nth-child({i+1}) {{ animation-delay: -{total_duration * i / len(messages_sample):.1f}s; }}" for i in range(len(messages_sample)))}
+                {"".join(f".cycling-messages span:nth-child({i+1}) {{ animation-delay: {total_duration * i / len(messages_sample):.1f}s; }}" for i in range(len(messages_sample)))}
             </style>
             <div class="processing-container">
                 <div class="orbit-ring"></div>
@@ -308,8 +312,8 @@ class OCRInterface:
                 <div class="orbiting-dot orbiting-dot-2"></div>
                 <div class="orbiting-dot orbiting-dot-3"></div>
             </div>
-            <h3 style="color: #06b6d4; margin-top: 30px; font-family: 'Montserrat Alternates', sans-serif; text-align: center;">Processing your document...</h3>
-            <div class="cycling-messages" style="color: #94a3b8; font-family: 'Montserrat Alternates', sans-serif; text-align: center;">
+            <h3 style="background: linear-gradient(135deg, #DF579F, #EC6E53, #BFC85A); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-top: 30px; font-family: 'Rajdhani', sans-serif; font-weight: 600; text-align: center; letter-spacing: 0.5px;">Processing your document...</h3>
+            <div class="cycling-messages" style="color: #EC6E53; font-family: 'Rajdhani', sans-serif; font-weight: 500; text-align: center; letter-spacing: 0.3px;">
                 {"".join(f'<span>{message}</span>' for message in messages_sample)}
             </div>
         </div>
@@ -351,8 +355,6 @@ class OCRInterface:
     
     def _parse_dual_evaluation(self, evaluation_content: str):
         """Parse dual evaluation comparison report."""
-        print("DEBUG: Parsing dual evaluation content...")
-        print(f"DEBUG: First 500 chars of content: {evaluation_content[:500]}")
         
         lines = evaluation_content.split('\n')
         
@@ -462,7 +464,6 @@ class OCRInterface:
                             score = score_part.split('/')[0].strip()
                             return f"{score}/100"
                         except Exception as e:
-                            print(f"DEBUG: Score parsing failed for line '{check_line}': {e}")
                             continue
                     # Stop if we hit another evaluation section
                     if "EVALUATION" in check_line and marker not in check_line:
@@ -489,7 +490,6 @@ class OCRInterface:
                             # Remove any trailing text after whitespace
                             return rec_part.split()[0] if rec_part else "UNKNOWN"
                         except Exception as e:
-                            print(f"DEBUG: Recommendation parsing failed for line '{check_line}': {e}")
                             continue
                     # Stop if we hit another evaluation section
                     if "EVALUATION" in check_line and marker not in check_line:
@@ -523,10 +523,8 @@ class OCRInterface:
                     score = score_part.split('/')[0].strip()
                     return f"{score}/100"
                 except Exception as e:
-                    print(f"DEBUG: Score parsing failed for line '{line}': {e}")
                     continue
         
-        print(f"DEBUG: No score found for provider '{provider}'")
         return "N/A"
     
     def _extract_recommendation_from_summary(self, content: str, provider: str) -> str:
@@ -554,10 +552,8 @@ class OCRInterface:
                     # Remove any trailing text after whitespace
                     return rec_part.split()[0] if rec_part else "UNKNOWN"
                 except Exception as e:
-                    print(f"DEBUG: Recommendation parsing failed for line '{line}': {e}")
                     continue
         
-        print(f"DEBUG: No recommendation found for provider '{provider}'")
         return "UNKNOWN"
     
     def _extract_agreement(self, content: str) -> str:
@@ -568,14 +564,14 @@ class OCRInterface:
                 try:
                     agreement = line.split("Agreement Level:")[1].strip()
                     return agreement
-                except:
+                except (IndexError, AttributeError):
                     pass
         return "Unknown"
 
     def get_css(self) -> str:
         """Get CSS styling for the interface."""
         return """
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Montserrat+Alternates:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Literata:wght@400;500;600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap');
         
         /* Main Container with Modern Gradient Background */
         .gradio-container { 
@@ -639,7 +635,7 @@ class OCRInterface:
             margin: 0 0 1rem 0;
             font-size: 2.5rem;
             font-weight: 500;
-            font-family: 'Montserrat Alternates', sans-serif !important;
+            font-family: 'Literata', serif !important;
             background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 50%, #67e8f9 100%);
             background-clip: text;
             -webkit-background-clip: text;
@@ -664,7 +660,7 @@ class OCRInterface:
         }
         
         .section-header {
-            font-family: 'Montserrat Alternates', sans-serif !important;
+            font-family: 'Literata', serif !important;
             font-size: 1.2rem;
             font-weight: 600;
             color: #f0f9ff;
@@ -720,9 +716,21 @@ class OCRInterface:
         
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 1rem;
             margin: 1rem 0;
+        }
+
+        @media (max-width: 1200px) {
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
         }
         
         /* Glassmorphic Metric Cards */
@@ -871,7 +879,7 @@ class OCRInterface:
             transform: none !important;
             filter: grayscale(0.5) !important;
         }
-        
+
         /* Button Focus States */
         .primary-btn:focus, .secondary-btn:focus {
             outline: 2px solid rgba(6, 182, 212, 0.5) !important;
@@ -904,7 +912,8 @@ class OCRInterface:
             padding: 4px !important;
             border: 1px solid rgba(255, 255, 255, 0.05) !important;
         }
-        
+
+
         /* Right Panel Glassmorphism */
         .gr-panel {
             background: rgba(255, 255, 255, 0.02) !important;
@@ -948,26 +957,400 @@ class OCRInterface:
         .progress-level, .progress-level-inner, .progress-bar {
             background: linear-gradient(90deg, #06b6d4, #67e8f9) !important;
         }
-        
+
         .progress-text, .progress-label {
             color: #67e8f9 !important;
-            font-family: 'Montserrat Alternates', sans-serif !important;
+            font-family: 'Literata', serif !important;
         }
-        
+
         /* Ensure all progress-related elements use blue theme */
         div[class*="progress"] {
             color: #67e8f9 !important;
         }
+
+        /* Navigation Button Styles */
+        .nav-btn {
+            font-weight: 700 !important;
+            font-size: 1.1rem !important;
+            padding: 16px 32px !important;
+            border-radius: 12px !important;
+            transition: all 0.3s ease !important;
+            font-family: 'Literata', serif !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.05em !important;
+            margin: 10px 5px !important;
+        }
+
+        /* Document OCR nav button - Cyan/Blue */
+        .nav-btn-doc {
+            background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%) !important;
+            color: white !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow:
+                0 4px 12px rgba(6, 182, 212, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .nav-btn-doc:hover {
+            background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%) !important;
+            transform: translateY(-2px) !important;
+            box-shadow:
+                0 6px 16px rgba(6, 182, 212, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+        }
+
+        /* Excel Processor nav button - Gray (inactive) */
+        .nav-btn-excel,
+        .nav-btn-excel-inactive {
+            background: linear-gradient(135deg, #52525b 0%, #71717a 100%) !important;
+            color: white !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow:
+                0 4px 12px rgba(82, 82, 91, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .nav-btn-excel:hover,
+        .nav-btn-excel-inactive:hover {
+            background: linear-gradient(135deg, #71717a 0%, #a1a1aa 100%) !important;
+            transform: translateY(-2px) !important;
+            box-shadow:
+                0 6px 16px rgba(82, 82, 91, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+        }
+
+        /* Excel Processor nav button - Cyan/Blue (active) */
+        .nav-btn-excel-active {
+            background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%) !important;
+            color: white !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow:
+                0 4px 12px rgba(6, 182, 212, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .nav-btn-excel-active:hover {
+            background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%) !important;
+            transform: translateY(-2px) !important;
+            box-shadow:
+                0 6px 16px rgba(6, 182, 212, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+        }
+
+        /* Make navigation buttons full width on mobile */
+        @media (max-width: 768px) {
+            .nav-btn {
+                width: 100% !important;
+                margin: 5px 0 !important;
+            }
+        }
+
+        /* Image Overlay Modal */
+        #imageOverlay {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        #imageOverlay.show {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #overlayImage {
+            max-width: 90vw;
+            max-height: 90vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            animation: zoomIn 0.3s ease;
+        }
+
+        @keyframes zoomIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        #overlayClose {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.1);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        #overlayClose:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotate(90deg);
+        }
+
+        #overlayCaption {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #f1f1f1;
+            font-size: 18px;
+            font-weight: 500;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Logs Output Styling */
+        .logs-output textarea {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace !important;
+            font-size: 0.9rem !important;
+            line-height: 1.5 !important;
+            background: rgba(0, 0, 0, 0.4) !important;
+            color: #e2e8f0 !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 12px !important;
+            padding: 1rem !important;
+        }
+
+        .logs-output textarea::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .logs-output textarea::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+
+        .logs-output textarea::-webkit-scrollbar-thumb {
+            background: rgba(6, 182, 212, 0.4);
+            border-radius: 5px;
+        }
+
+        .logs-output textarea::-webkit-scrollbar-thumb:hover {
+            background: rgba(6, 182, 212, 0.6);
+        }
+
+        /* Feedback Form Styles */
+        .feedback-form-container {
+            background: rgba(255, 255, 255, 0.03) !important;
+            backdrop-filter: blur(16px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+            border-radius: 16px !important;
+            padding: 1.25rem !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            box-shadow:
+                0 8px 32px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+            margin-top: 1.5rem;
+        }
+
+        #tally-feedback-embed {
+            width: 100% !important;
+            min-height: 450px !important;
+            border: none !important;
+            border-radius: 12px !important;
+            background: transparent !important;
+        }
+
+        #tally-feedback-embed iframe {
+            border-radius: 12px !important;
+        }
+
         """
-    
-    def process_wrapper(self, uploaded_file, page_ranges_str):
+
+    def _parse_excel_config(self, excel_column_config, excel_header_rows, excel_include_headers=False):
+        """Parse Excel configuration from UI into structure for agents."""
+        if excel_column_config is None or (hasattr(excel_column_config, 'empty') and excel_column_config.empty):
+            self.excel_structure_config = None
+            return
+
+        # Convert dataframe/list config to structured format
+        column_structure = []
+
+        # Handle both list and dataframe formats
+        if hasattr(excel_column_config, 'iterrows'):
+            # It's a DataFrame
+            for idx, row in excel_column_config.iterrows():
+                col_name = row[0]  # First column
+                role = row[1]      # Second column
+                if role.lower() == "ignore":
+                    continue
+
+                column_structure.append({
+                    "index": idx,
+                    "header": col_name,
+                    "role": role.lower().replace(" ", "_"),  # "Label 1" -> "label_1"
+                    "type": "data" if role.lower() == "data" else "text"
+                })
+        else:
+            # It's a list of lists
+            for idx, (col_name, role) in enumerate(excel_column_config):
+                if role.lower() == "ignore":
+                    continue
+
+                column_structure.append({
+                    "index": idx,
+                    "header": col_name,
+                    "role": role.lower().replace(" ", "_"),  # "Label 1" -> "label_1"
+                    "type": "data" if role.lower() == "data" else "text"
+                })
+
+        self.excel_structure_config = {
+            "type": "openpyxl_worksheet",
+            "column_structure": column_structure,
+            "data_start_row": int(excel_header_rows) if excel_header_rows else 1,
+            "hierarchical": False,
+            "merged_cells": [],
+            "user_configured": True,
+            "include_headers": excel_include_headers
+        }
+
+
+    def handle_file_upload(self, uploaded_file):
+        """Handle file upload and show Excel config UI if needed."""
+        import pandas as pd
+
+        if not uploaded_file:
+            return gr.update(visible=False), None, None, None
+
+        # Check if this is an Excel file
+        file_extension = Path(uploaded_file.name).suffix.lower()
+        is_excel = file_extension in ['.xlsx', '.xls', '.csv']
+
+        if not is_excel:
+            # Hide Excel config for non-Excel files
+            return gr.update(visible=False), None, None, None
+
+        try:
+            # Load Excel file to show preview
+            if file_extension == '.csv':
+                df = pd.read_csv(uploaded_file.name, nrows=10)
+            else:
+                df = pd.read_excel(uploaded_file.name, nrows=10, engine='openpyxl')
+
+            # Create column configuration dataframe with default roles
+            column_names = df.columns.tolist()
+
+            # Smart defaults: assume first column is Label 1, last few are Data
+            default_config = []
+            for i, col in enumerate(column_names):
+                if i == 0:
+                    role = "Label 1"
+                elif i < 3:  # First 3 columns might be labels
+                    role = "Label " + str(i + 1)
+                else:
+                    role = "Data"
+                default_config.append([str(col), role])
+
+            # Show Excel config section
+            return (
+                gr.update(visible=True),  # Show the section
+                df,  # Preview dataframe
+                default_config,  # Column configuration
+                1,  # Default header rows
+                False  # Default: no section headers
+            )
+
+        except Exception as e:
+            print(f"Error loading Excel preview: {e}")
+            return gr.update(visible=False), None, None, None, None
+
+    def process_wrapper(self, uploaded_file, page_ranges_str, excel_column_config=None, excel_header_rows=1, excel_include_headers=False,
+                       enable_summary=False, enable_quality_report=False, enable_raw_ocr=False, vision_table=None):
         """Wrapper for document processing with UI updates."""
+        # Convert dropdown strings to booleans (Gradio dropdowns return strings)
+        enable_summary = enable_summary == "Enabled" if isinstance(enable_summary, str) else enable_summary
+        enable_quality_report = enable_quality_report == "Enabled" if isinstance(enable_quality_report, str) else enable_quality_report
+        enable_raw_ocr = enable_raw_ocr == "Enabled" if isinstance(enable_raw_ocr, str) else enable_raw_ocr
+
         # start every run with a clean abort flag
         self.processor.clear_abort()
-        
+
+        # Store Excel configuration if provided
+        if excel_column_config is not None and len(excel_column_config) > 0:
+            self._parse_excel_config(excel_column_config, excel_header_rows, excel_include_headers)
+
+        # Parse vision recommendations from table (DataFrame from Gradio)
+        vision_page_settings = None
+
+        if vision_table is not None and len(vision_table) > 0:
+            import pandas as pd
+
+            # Check if it's a DataFrame
+            if isinstance(vision_table, pd.DataFrame):
+                vision_page_settings = {}
+
+                # DataFrame columns: ["Page", "Recommended", "Reason", "Thumbnail"]
+                for idx, row in vision_table.iterrows():
+                    try:
+                        page_num = int(row.iloc[0])  # Page column
+                        recommendation = str(row.iloc[1]).upper()  # Recommended column
+
+                        if recommendation in ["YES", "NO"]:
+                            vision_page_settings[page_num] = recommendation
+                            self.processor.logger.log_step(f"📋 Page {page_num} -> {recommendation} (from user table)")
+                    except (ValueError, TypeError, IndexError) as e:
+                        # Skip invalid rows
+                        continue
+
+                if vision_page_settings:
+                    vision_yes = sum(1 for v in vision_page_settings.values() if v == "YES")
+                    vision_no = sum(1 for v in vision_page_settings.values() if v == "NO")
+                    self.processor.logger.log_step("")
+                    self.processor.logger.log_step("=" * 60)
+                    self.processor.logger.log_step("📊 VISION OCR CONFIGURATION (User-Edited)")
+                    self.processor.logger.log_step("=" * 60)
+                    self.processor.logger.log_step(f"✅ {vision_yes} pages WITH vision OCR")
+                    self.processor.logger.log_step(f"⚡ {vision_no} pages WITHOUT vision (fast mode)")
+                    self.processor.logger.log_step("=" * 60)
+                    self.processor.logger.log_step("")
+                else:
+                    self.processor.logger.log_warning("⚠️ Vision table is empty or invalid")
+            else:
+                # Handle as list of rows (legacy)
+                vision_page_settings = {}
+                for row in vision_table:
+                    try:
+                        if len(row) >= 2 and row[0] and row[1]:
+                            page_num = int(row[0])
+                            recommendation = str(row[1]).upper()
+                            vision_page_settings[page_num] = recommendation
+                    except (ValueError, TypeError, IndexError) as e:
+                        continue
+
+                if vision_page_settings:
+                    vision_yes = sum(1 for v in vision_page_settings.values() if v == "YES")
+                    vision_no = sum(1 for v in vision_page_settings.values() if v == "NO")
+                    self.processor.logger.log_step(f"📊 Vision recommendations: {vision_yes} pages WITH vision OCR, {vision_no} pages WITHOUT")
+
         if not uploaded_file:
             return self._no_file_response()
-        
+
         yield self._processing_state()
         
         # Add periodic abort checking during processing
@@ -979,7 +1362,12 @@ class OCRInterface:
 
             result = self.processor.process_document(
                 uploaded_file,
-                page_ranges_str if page_ranges_str and page_ranges_str.strip() else None
+                page_ranges_str if page_ranges_str and page_ranges_str.strip() else None,
+                excel_structure_config=self.excel_structure_config,
+                vision_page_settings=vision_page_settings,
+                enable_summary=enable_summary,
+                enable_quality_report=enable_quality_report,
+                enable_raw_ocr=enable_raw_ocr
             )
 
             if result.status == "Aborted":
@@ -990,13 +1378,35 @@ class OCRInterface:
             analytics_html = self._generate_analytics(result)
             status_html = self._generate_status(result)
             
-            # Generate summary
+            # Check if this is an Excel file
+            file_extension = Path(uploaded_file.name).suffix.lower() if uploaded_file else ""
+            is_excel = file_extension in ['.xlsx', '.xls', '.csv']
+
+            # Generate summary (skip for Excel files and if disabled)
             self.current_document_title = extract_document_title(uploaded_file.name) if uploaded_file else "Document"
-            summary_content, summary_success = self.summary_generator.generate_summary(result.content, self.current_document_title)
-            self.current_summary = summary_content
-            
+
+            summary_time = 0.0
+            if enable_summary and not is_excel:
+                summary_start = time.time()
+                summary_content, summary_success = self.summary_generator.generate_summary(result.content, self.current_document_title)
+                summary_time = time.time() - summary_start
+                self.current_summary = summary_content
+            else:
+                # Skip summary generation
+                if is_excel:
+                    summary_content = "Summary generation is disabled for Excel files."
+                elif not enable_summary:
+                    summary_content = "Summary generation was disabled by user."
+                else:
+                    summary_content = "Summary generation is disabled."
+                summary_success = False
+                self.current_summary = summary_content
+
+            # Update result with summary timing
+            result.summary_time = summary_time
+
             # Generate summary statistics
-            if summary_success:
+            if summary_success and not is_excel and enable_summary:
                 stats = self.summary_generator.get_summary_stats(summary_content, result.content)
                 summary_stats_html = f"""
                 <div class='status-box status-success'>
@@ -1007,23 +1417,54 @@ class OCRInterface:
                     <p><strong>Focus:</strong> Benefits & Eligibility</p>
                 </div>
                 """
+            elif is_excel:
+                summary_stats_html = "<div class='status-box status-info'>ℹ️ Summary generation is disabled for Excel files</div>"
+            elif not enable_summary:
+                summary_stats_html = "<div class='status-box status-info'>ℹ️ Summary generation was disabled by user</div>"
             else:
                 summary_stats_html = "<div class='status-box status-error'>❌ Summary generation failed</div>"
             
             # Parse evaluation report for side-by-side display
             # Get evaluation report directly from the ProcessingResult
-            evaluation_content = result.evaluation_report if hasattr(result, 'evaluation_report') and result.evaluation_report else "*No evaluation report available*"
+            if enable_quality_report:
+                evaluation_content = result.evaluation_report if hasattr(result, 'evaluation_report') and result.evaluation_report else "*No evaluation report available*"
+            else:
+                evaluation_content = "*Quality report generation was disabled by user.*"
             self.current_evaluation = evaluation_content  # Store for download
-            
+
+            # Debug output file
+
+            # Handle main output file based on configuration
+            if result.output_file:
+                result.output_file = self._get_download_path(result.output_file)
+
             # Parse evaluation report into components
             comparison_summary_html, openai_content, anthropic_content, evaluation_stats_html = self._parse_evaluation_for_comparison(evaluation_content)
-            
+
             # Capture debug data from processing logs
-            raw_ocr_data = self._extract_raw_ocr_from_logs()
+            if enable_raw_ocr:
+                raw_ocr_data = self._extract_raw_ocr_from_logs()
+            else:
+                raw_ocr_data = "Raw OCR extraction was disabled by user."
             
+            # Get processing logs
+            logs_data = self.processor.logger.get_logs() if hasattr(self.processor, 'logger') else "No logs available"
+
+            # Generate AI metadata cleaning report
+            cleaning_report_md = "*No AI metadata cleaning report available*"
+            if hasattr(result, 'agent_responses') and result.agent_responses:
+                try:
+                    report = MetadataReporter.generate_report(
+                        result.agent_responses,
+                        total_pages=result.pages_processed
+                    )
+                    cleaning_report_md = report.to_markdown()
+                except Exception as e:
+                    cleaning_report_md = f"*Error generating cleaning report: {str(e)}*"
+
             yield (
                 result.content,                 # Markdown
-                summary_content,                # Summary Markdown  
+                summary_content,                # Summary Markdown
                 summary_stats_html,             # Summary Stats HTML
                 comparison_summary_html,        # Evaluation Comparison Summary
                 openai_content,                 # OpenAI Evaluation Markdown
@@ -1036,7 +1477,9 @@ class OCRInterface:
                 gr.update(visible=True, interactive=True),        # Clear visible
                 gr.update(visible=False),       # Abort hidden
                 gr.update(visible=False),       # Processing animation hidden
-                raw_ocr_data                    # Raw Vision OCR Output
+                raw_ocr_data,                   # Raw Vision OCR Output
+                logs_data,                      # Analysis Logs
+                cleaning_report_md              # Cleaning Report
             )
             
         except Exception as e:
@@ -1059,7 +1502,9 @@ class OCRInterface:
             gr.update(visible=False),                                          # Clear
             gr.update(visible=False),                                          # Abort
             gr.update(visible=False),                                          # Processing animation hidden
-            "Raw OCR output will appear here after processing..."             # Raw OCR Output
+            "Raw OCR output will appear here after processing...",            # Raw OCR Output
+            "Processing logs will appear here...",                            # Analysis Logs
+            "*AI metadata cleaning report will appear here after processing...*" # Cleaning Report
         )
     
     def _processing_state(self):
@@ -1079,7 +1524,9 @@ class OCRInterface:
             gr.update(visible=True, interactive=False),                                           # Clear visible
             gr.update(visible=True),                                           # Abort visible
             gr.update(value=self._load_animation_html(), visible=True),  # Processing animation visible with random message
-            "🔄 Processing..."                                                # Raw OCR Output
+            "🔄 Processing...",                                               # Raw OCR Output
+            "🔄 Collecting logs...",                                          # Analysis Logs
+            "🔄 Generating cleaning report..."                                # Cleaning Report
         )
     
     def _error_response(self, error_msg):
@@ -1099,7 +1546,9 @@ class OCRInterface:
             gr.update(visible=True, interactive=True),                                            # Clear visible
             gr.update(visible=False),                                            # Abort visible
             gr.update(visible=False),                                            # Processing animation hidden
-            f"❌ Processing failed: {error_msg}"                              # Raw OCR Output
+            f"❌ Processing failed: {error_msg}",                             # Raw OCR Output
+            f"❌ Error during processing: {error_msg}",                       # Analysis Logs
+            f"*❌ Cleaning report unavailable due to error: {error_msg}*"     # Cleaning Report
         )
     
     def _aborted_response(self):
@@ -1119,11 +1568,26 @@ class OCRInterface:
             gr.update(visible=True, interactive=True),                                            # Clear visible
             gr.update(visible=False),                                           # Abort hidden
             gr.update(visible=False),                                           # Processing animation hidden
-            "⚠️ Processing was aborted by user"                                # Raw OCR Output
+            "⚠️ Processing was aborted by user",                               # Raw OCR Output
+            "⚠️ Processing was aborted by user",                               # Analysis Logs
+            "*⚠️ Cleaning report unavailable - processing was aborted*"        # Cleaning Report
         )
     
     def _generate_metrics(self, result):
         """Generate metrics HTML."""
+        # Format token count (e.g., 25.3K or 1.2M)
+        def format_number(num):
+            if num >= 1_000_000:
+                return f"{num/1_000_000:.1f}M"
+            elif num >= 1_000:
+                return f"{num/1_000:.1f}K"
+            else:
+                return str(num)
+
+        # Format cost
+        cost_str = f"${result.estimated_cost:.3f}" if hasattr(result, 'estimated_cost') and result.estimated_cost > 0 else "N/A"
+        tokens_str = format_number(result.total_tokens) if hasattr(result, 'total_tokens') and result.total_tokens > 0 else "N/A"
+
         return f"""
         <div class="metrics-grid">
             <div class="metric-card">
@@ -1135,11 +1599,19 @@ class OCRInterface:
                 <div class="metric-label">Vision Calls</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value">{"✓" if result.success else "✗"}</div>
-                <div class="metric-label">Status</div>
+                <div class="metric-value">{tokens_str}</div>
+                <div class="metric-label">Tokens Used</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value">{len(result.content.split()) if result.content else 0}</div>
+                <div class="metric-value">{cost_str}</div>
+                <div class="metric-label">Est. Cost</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{result.pages_processed}</div>
+                <div class="metric-label">Pages</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{len(result.content.split()) if result.content else 0:,}</div>
                 <div class="metric-label">Words</div>
             </div>
         </div>
@@ -1148,14 +1620,58 @@ class OCRInterface:
     def _generate_analytics(self, result):
         """Generate detailed analytics HTML."""
         vision_efficiency = f"{(result.vision_calls_used / max(result.pages_processed, 1)):.1f}" if result.pages_processed > 0 else "0"
-        
+
+        # Component timing breakdown
+        timing_breakdown = ""
+        if hasattr(result, 'vision_ocr_time') or hasattr(result, 'quality_report_time') or hasattr(result, 'summary_time'):
+            vision_ocr_time = getattr(result, 'vision_ocr_time', 0.0)
+            quality_report_time = getattr(result, 'quality_report_time', 0.0)
+            summary_time = getattr(result, 'summary_time', 0.0)
+
+            # Only show timing breakdown if at least one component has time
+            if vision_ocr_time > 0 or quality_report_time > 0 or summary_time > 0:
+                timing_breakdown = f"""
+            <p><strong>Component Timing:</strong></p>
+            <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                <li>Vision OCR & Processing: {vision_ocr_time:.2f}s</li>
+                <li>Quality Report: {quality_report_time:.2f}s</li>
+                <li>Summary Generation: {summary_time:.2f}s</li>
+            </ul>
+            """
+
+        # Token breakdown
+        token_breakdown = ""
+        if hasattr(result, 'total_tokens') and result.total_tokens > 0:
+            vision_pct = (result.vision_tokens / result.total_tokens * 100) if result.total_tokens > 0 else 0
+            formatting_pct = (result.formatting_tokens / result.total_tokens * 100) if result.total_tokens > 0 else 0
+            token_breakdown = f"""
+            <p><strong>Token Breakdown:</strong></p>
+            <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                <li>Vision OCR: {result.vision_tokens:,} ({vision_pct:.1f}%)</li>
+                <li>Formatting: {result.formatting_tokens:,} ({formatting_pct:.1f}%)</li>
+                <li>Total: {result.total_tokens:,}</li>
+            </ul>
+            """
+
+        # Cost breakdown
+        cost_breakdown = ""
+        if hasattr(result, 'estimated_cost') and result.estimated_cost > 0:
+            cost_breakdown = f"""
+            <p><strong>Cost Estimate:</strong> ${result.estimated_cost:.4f} USD</p>
+            <p style="font-size: 0.85em; opacity: 0.8;">Based on GPT-4o ($10/1M tokens) and Claude Sonnet ($3/1M tokens)</p>
+            """
+
         return f"""
         <div class="status-box {'status-success' if result.success else 'status-error'}">
             <h4>📊 Processing Analytics</h4>
-            <p><strong>Pages:</strong> {result.pages_processed}</p>
-            <p><strong>Vision calls:</strong> {result.vision_calls_used} ({vision_efficiency} per page)</p>
-            <p><strong>Words extracted:</strong> {len(result.content.split()) if result.content else 0}</p>
-            <p><strong>Status:</strong> {"Success" if result.success else "Failed"}</p>
+            <p><strong>Pages Processed:</strong> {result.pages_processed}</p>
+            <p><strong>Vision Calls:</strong> {result.vision_calls_used} ({vision_efficiency} per page)</p>
+            <p><strong>Words Extracted:</strong> {len(result.content.split()) if result.content else 0:,}</p>
+            <p><strong>Processing Time:</strong> {result.processing_time:.2f}s ({result.processing_time/max(result.pages_processed,1):.2f}s per page)</p>
+            {timing_breakdown}
+            {token_breakdown}
+            {cost_breakdown}
+            <p><strong>Status:</strong> {"✅ Success" if result.success else "❌ Failed"}</p>
         </div>
         """
     
@@ -1176,6 +1692,9 @@ class OCRInterface:
         self.current_summary = ""
         self.current_document_title = ""
         self.current_evaluation = ""
+        self.excel_structure_config = None  # Clear Excel config
+        self.vision_recommendations = None  # Clear vision recommendations
+        self.current_uploaded_file = None  # Clear uploaded file
         return (
             "*Processed document content will appear here after processing...*", # Markdown
             "*Benefits and eligibility summary will appear here after processing...*",  # Summary
@@ -1193,7 +1712,12 @@ class OCRInterface:
             gr.update(value=""),                                                # Page ranges cleared
             gr.update(value=None),                                               # PDF cleared
             gr.update(visible=False),                                            # Processing animation hidden
-            "Raw OCR output will appear here after processing..."              # Raw OCR Output cleared
+            "Raw OCR output will appear here after processing...",              # Raw OCR Output cleared
+            "<div class='status-box'>⏳ Upload a PDF, then click Analyze</div>", # Analyze status reset
+            None,                                                                 # Vision recommendation table cleared
+            gr.update(visible=False),                                            # Vision recommendation table hidden
+            "Processing logs will appear here...",                               # Analysis Logs cleared
+            "*AI metadata cleaning report will appear here after processing...*" # Cleaning Report cleared
         )
     
     def abort_processing(self):
@@ -1220,38 +1744,43 @@ class OCRInterface:
         """Download summary as Markdown file."""
         if not self.current_summary:
             return gr.update(value=None, visible=False)
-        
+
         try:
             md_path = self.summary_generator.save_summary_markdown(
-                self.current_summary, 
+                self.current_summary,
                 self.current_document_title or "document"
             )
-            
+
+
             if md_path:
-                return gr.update(value=md_path, visible=True)
+                download_path = self._get_download_path(md_path)
+                return gr.update(value=download_path, visible=True)
             else:
                 return gr.update(value=None, visible=False)
-                
+
         except Exception as e:
             print(f"Error downloading MD summary: {e}")
+            import traceback
+            traceback.print_exc()
             return gr.update(value=None, visible=False)
     
     def download_summary_pdf(self):
         """Download summary as PDF file."""
         if not self.current_summary:
             return gr.update(value=None, visible=False)
-        
+
         try:
             pdf_path = self.summary_generator.save_summary_pdf(
                 self.current_summary,
                 self.current_document_title or "document"
             )
-            
+
             if pdf_path:
-                return gr.update(value=pdf_path, visible=True)
+                download_path = self._get_download_path(pdf_path)
+                return gr.update(value=download_path, visible=True)
             else:
                 return gr.update(value=None, visible=False)
-                
+
         except Exception as e:
             print(f"Error downloading PDF summary: {e}")
             return gr.update(value=None, visible=False)
@@ -1260,176 +1789,1212 @@ class OCRInterface:
         """Download evaluation report as Markdown file."""
         if not hasattr(self, 'current_evaluation') or not self.current_evaluation:
             return gr.update(value=None, visible=False)
-        
+
         try:
-            # Save evaluation report to file
+            # Save evaluation report
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             eval_filename = f"{self.current_document_title or 'document'}_evaluation_{timestamp}.md"
-            eval_path = Path(tempfile.gettempdir()) / eval_filename
-            
+
+            if self.use_local_downloads and self.downloads_dir:
+                # Save directly to local downloads directory
+                eval_path = self.downloads_dir / eval_filename
+            else:
+                # Save to temp directory for HuggingFace
+                eval_path = Path(tempfile.gettempdir()) / eval_filename
+
             with open(eval_path, 'w', encoding='utf-8') as f:
                 f.write(self.current_evaluation)
-            
+
             return gr.update(value=str(eval_path), visible=True)
-            
+
         except Exception as e:
             print(f"Error downloading evaluation report: {e}")
             return gr.update(value=None, visible=False)
 
+    def handle_excel_upload(self, uploaded_file):
+        """Handle Excel file upload and show preview + default config + sheet names."""
+        import pandas as pd
+        import openpyxl
+
+        # Reset saved configurations
+        self.saved_sheet_configs = {}
+
+        if not uploaded_file:
+            return (None, None, gr.update(choices=[], value=None, visible=False),
+                    gr.update(value="", visible=False), gr.update(visible=False),
+                    gr.update(visible=False), gr.update(value="<div class='status-box'>No sheets configured yet.</div>"))
+
+        try:
+            file_extension = Path(uploaded_file.name).suffix.lower()
+
+            # Get sheet names if it's an Excel file (not CSV)
+            sheet_names = []
+            if file_extension in ['.xlsx', '.xls']:
+                wb = openpyxl.load_workbook(uploaded_file.name, read_only=True, data_only=True)
+                sheet_names = wb.sheetnames
+                wb.close()
+
+                # Default to first sheet for initial preview
+                df = pd.read_excel(uploaded_file.name, sheet_name=0, nrows=10, engine='openpyxl')
+
+                # Show sheet selector if multiple sheets
+                if len(sheet_names) > 1:
+                    return (
+                        df,
+                        self._generate_default_column_config(df),
+                        gr.update(choices=sheet_names, value=sheet_names[0], visible=True),
+                        gr.update(value=f"<div class='status-box' style='background: rgba(59, 130, 246, 0.1);'>📄 Previewing: <strong>{sheet_names[0]}</strong></div>", visible=True),
+                        gr.update(visible=True),  # Show save button
+                        gr.update(visible=True),  # Show clear button
+                        gr.update(value="<div class='status-box'>No sheets configured yet. Configure and save sheets below.</div>")
+                    )
+                else:
+                    # Single sheet, no selector needed
+                    return (
+                        df,
+                        self._generate_default_column_config(df),
+                        gr.update(choices=sheet_names, value=sheet_names[0] if sheet_names else None, visible=False),
+                        gr.update(value="", visible=False),
+                        gr.update(visible=False),  # Hide save button for single sheet
+                        gr.update(visible=False),
+                        gr.update(value="<div class='status-box'>Single sheet - configuration will be applied automatically.</div>")
+                    )
+            else:
+                # CSV file
+                df = pd.read_csv(uploaded_file.name, nrows=10)
+                return (
+                    df,
+                    self._generate_default_column_config(df),
+                    gr.update(choices=[], value=None, visible=False),
+                    gr.update(value="", visible=False),
+                    gr.update(visible=False),
+                    gr.update(visible=False),
+                    gr.update(value="<div class='status-box'>CSV file - configuration will be applied automatically.</div>")
+                )
+
+        except Exception as e:
+            self.processor.logger.error(f"Error loading Excel preview: {e}")
+            return (None, None, gr.update(choices=[], value=None, visible=False),
+                    gr.update(value="", visible=False), gr.update(visible=False),
+                    gr.update(visible=False), gr.update(value="<div class='status-box status-error'>Error loading file</div>"))
+
+    def _generate_default_column_config(self, df):
+        """Generate default column configuration for a dataframe."""
+        column_names = df.columns.tolist()
+        default_config = []
+        for i, col in enumerate(column_names):
+            if i == 0:
+                role = "Label 1"
+            elif i < 3:  # First 3 columns might be labels
+                role = "Label " + str(i + 1)
+            else:
+                role = "Data"
+            default_config.append([str(col), role])
+        return default_config
+
+    def preview_excel_sheet(self, uploaded_file, selected_sheet):
+        """Preview a specific sheet from the Excel file when dropdown changes."""
+        import pandas as pd
+
+        if not uploaded_file or not selected_sheet:
+            return (None, None, gr.update(value="<div class='status-box status-error'>⚠️ Please select a sheet</div>", visible=True))
+
+        try:
+            df = pd.read_excel(uploaded_file.name, sheet_name=selected_sheet, nrows=10, engine='openpyxl')
+
+            return (
+                df,
+                self._generate_default_column_config(df),
+                gr.update(value=f"<div class='status-box' style='background: rgba(59, 130, 246, 0.1);'>📄 Previewing: <strong>{selected_sheet}</strong></div>", visible=True)
+            )
+
+        except Exception as e:
+            self.processor.logger.error(f"Error previewing sheet: {e}")
+            return (
+                None,
+                None,
+                gr.update(value=f"<div class='status-box status-error'>❌ Error: {str(e)}</div>", visible=True)
+            )
+
+    def save_sheet_configuration(self, selected_sheet, excel_column_config, excel_header_rows, excel_include_headers):
+        """Save configuration for the currently selected sheet."""
+        if not selected_sheet:
+            return gr.update(value="<div class='status-box status-error'>⚠️ Please select a sheet first</div>")
+
+        if not hasattr(self, 'saved_sheet_configs'):
+            self.saved_sheet_configs = {}
+
+        # Store configuration for this sheet
+        self.saved_sheet_configs[selected_sheet] = {
+            'column_config': excel_column_config,
+            'header_rows': excel_header_rows,
+            'include_headers': excel_include_headers
+        }
+
+        # Generate display of saved sheets
+        saved_html = "<div class='status-box status-success'>"
+        saved_html += f"<strong>✅ {len(self.saved_sheet_configs)} Sheet(s) Configured:</strong><br><br>"
+        for sheet_name in self.saved_sheet_configs.keys():
+            saved_html += f"📄 <strong>{sheet_name}</strong><br>"
+        saved_html += "<br>Click 'Process Excel' to convert all configured sheets.</div>"
+
+        return gr.update(value=saved_html)
+
+    def clear_saved_configurations(self):
+        """Clear all saved sheet configurations."""
+        self.saved_sheet_configs = {}
+        return gr.update(value="<div class='status-box'>No sheets configured yet. Configure and save sheets below.</div>")
+
+    def process_excel_wrapper(self, uploaded_file):
+        """Wrapper for Excel processing with UI updates."""
+        self.processor.clear_abort()
+
+        if not uploaded_file:
+            yield self._no_excel_response()
+            return
+
+        # Use saved configurations if available, otherwise use current config
+        if not hasattr(self, 'saved_sheet_configs'):
+            self.saved_sheet_configs = {}
+
+        yield self._excel_processing_state()
+
+        try:
+            import pandas as pd
+            from pathlib import Path
+            import tempfile
+            import os
+
+            file_extension = Path(uploaded_file.name).suffix.lower()
+
+            # If saved configurations exist, process those sheets
+            if self.saved_sheet_configs and len(self.saved_sheet_configs) > 0 and file_extension in ['.xlsx', '.xls']:
+                all_content = []
+
+                for sheet_name, config in self.saved_sheet_configs.items():
+                    self.processor.logger.log_step(f"📊 Processing sheet: {sheet_name}")
+
+                    # Parse config for this sheet
+                    column_config = config['column_config']
+                    if column_config is not None and len(column_config) > 0:
+                        self._parse_excel_config(
+                            column_config,
+                            config['header_rows'],
+                            config['include_headers']
+                        )
+
+                    # Create temp file for this sheet only
+                    with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                        df = pd.read_excel(uploaded_file.name, sheet_name=sheet_name, engine='openpyxl')
+                        df.to_excel(tmp.name, index=False, engine='openpyxl')
+                        tmp_path = tmp.name
+
+                    # Create a mock uploaded file for this sheet
+                    class SheetFile:
+                        def __init__(self, path, name):
+                            self.name = path
+                            self.orig_name = name
+
+                    sheet_file = SheetFile(tmp_path, f"{sheet_name}.xlsx")
+
+                    # Process this sheet
+                    result = self.processor.process_document(
+                        sheet_file,
+                        page_ranges_str=None,
+                        excel_structure_config=self.excel_structure_config
+                    )
+
+                    # Clean up temp file
+                    os.unlink(tmp_path)
+
+                    if result.status == "Aborted":
+                        yield self._excel_aborted_response()
+                        return
+
+                    # Combine content with sheet header
+                    if result.content:
+                        all_content.append(f"## {sheet_name}\n\n{result.content}\n\n")
+
+                # Create combined result
+                result.content = "\n".join(all_content)
+                metrics_html = self._generate_metrics(result)
+                metrics_html = metrics_html.replace("</div>", f"<br>📑 Processed {len(self.saved_sheet_configs)} sheets</div>")
+
+            else:
+                # Single sheet or CSV processing (no saved configs)
+                result = self.processor.process_document(
+                    uploaded_file,
+                    page_ranges_str=None,
+                    excel_structure_config=None
+                )
+
+                if result.status == "Aborted":
+                    yield self._excel_aborted_response()
+                    return
+
+                metrics_html = self._generate_metrics(result)
+
+            analytics_html = self._generate_analytics(result)
+            status_html = self._generate_status(result)
+
+            # Handle output file
+            if result.output_file:
+                result.output_file = self._get_download_path(result.output_file)
+
+            yield (
+                result.content,                 # Formatted content
+                status_html,                    # Status
+                metrics_html,                   # Metrics
+                result.output_file,             # File download
+                analytics_html,                 # Analytics
+                gr.update(visible=True, interactive=True),  # Clear button
+                gr.update(visible=False),       # Abort hidden
+                gr.update(visible=False)        # Animation hidden
+            )
+
+        except Exception as e:
+            yield self._excel_error_response(str(e))
+
+    def _no_excel_response(self):
+        """Response when no Excel file is uploaded."""
+        return (
+            "*Please upload an Excel or CSV file to begin processing.*",
+            "<div class='status-box status-error'>❌ No file uploaded</div>",
+            "<div class='status-box'>No metrics available</div>",
+            gr.update(value=None),
+            "<div class='status-box status-error'>Please upload an Excel file</div>",
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False)
+        )
+
+    def _excel_processing_state(self):
+        """Response during Excel processing."""
+        return (
+            "*🚀 Processing Excel file...*",
+            "<div class='status-box status-processing'>⏳ Processing Excel...</div>",
+            "<div class='status-box status-processing'>⏳ Processing in progress...</div>",
+            gr.update(value=None),
+            "<div class='status-box status-processing'>Processing in progress...</div>",
+            gr.update(visible=True, interactive=False),
+            gr.update(visible=True),
+            gr.update(value=self._load_animation_html(), visible=True)
+        )
+
+    def _excel_error_response(self, error_msg):
+        """Response for Excel processing errors."""
+        return (
+            f"*❌ Processing Error: {error_msg}*",
+            f"<div class='status-box status-error'>❌ Error: {error_msg}</div>",
+            "<div class='status-box status-error'>❌ Processing failed</div>",
+            gr.update(value=None),
+            f"<div class='status-box status-error'>Error: {error_msg}</div>",
+            gr.update(visible=True, interactive=True),
+            gr.update(visible=False),
+            gr.update(visible=False)
+        )
+
+    def _excel_aborted_response(self):
+        """Response when Excel processing is aborted."""
+        return (
+            "**⚠️ Processing was aborted by user.**",
+            "<div class='status-box status-error'>⚠️ Processing aborted by user</div>",
+            "<div class='status-box'>Processing was aborted</div>",
+            gr.update(value=None),
+            "<div class='status-box status-error'>Processing was aborted by user</div>",
+            gr.update(visible=True, interactive=True),
+            gr.update(visible=False),
+            gr.update(visible=False)
+        )
+
+    def clear_excel(self):
+        """Clear Excel interface elements."""
+        self.processor.clear_abort()
+        self.processor.clear_logs()
+        self.excel_structure_config = None
+        return (
+            "*Processed Excel content will appear here...*",
+            "<div class='status-box'>⏳ Ready to process Excel file...</div>",
+            "<div class='status-box'>Metrics will appear during processing...</div>",
+            gr.update(value=None),
+            "<div class='status-box'>Analytics will appear after processing...</div>",
+            gr.update(visible=False, interactive=True),
+            gr.update(visible=False),
+            gr.update(value=None),
+            gr.update(visible=False),
+            None,  # Clear preview
+            None   # Clear column config
+        )
+
+    def handle_document_upload(self, uploaded_file):
+        """Handle document upload and update analyze status."""
+        if not uploaded_file:
+            return "<div class='status-box status-error'>❌ No file uploaded</div>"
+
+        # Store the uploaded file
+        self.current_uploaded_file = uploaded_file
+
+        # Check if this is a PDF (only PDFs need vision recommendation)
+        file_extension = Path(uploaded_file.name).suffix.lower()
+        is_pdf = file_extension == '.pdf'
+
+        if is_pdf:
+            return "<div class='status-box status-success'>✅ PDF uploaded! Click 'Analyze Document' to get recommendations</div>"
+        else:
+            return "<div class='status-box status-info'>ℹ️ Non-PDF file - vision analysis not needed</div>"
+
+    def refresh_vision_summary(self, vision_table):
+        """Refresh the vision OCR summary based on current table contents."""
+        import pandas as pd
+
+        if vision_table is None or len(vision_table) == 0:
+            return ""
+
+        try:
+            vision_yes = 0
+            vision_no = 0
+
+            if isinstance(vision_table, pd.DataFrame):
+                for idx, row in vision_table.iterrows():
+                    try:
+                        recommendation = str(row.iloc[1]).upper()  # Recommended column
+                        if recommendation == "YES":
+                            vision_yes += 1
+                        elif recommendation == "NO":
+                            vision_no += 1
+                    except (ValueError, TypeError, IndexError):
+                        continue
+            else:
+                # Handle as list
+                for row in vision_table:
+                    try:
+                        if len(row) >= 2:
+                            recommendation = str(row[1]).upper()
+                            if recommendation == "YES":
+                                vision_yes += 1
+                            elif recommendation == "NO":
+                                vision_no += 1
+                    except (ValueError, TypeError, IndexError):
+                        continue
+
+            summary_box = f"""
+            <div class='status-box' style='background: rgba(6, 182, 212, 0.15) !important; border: 2px solid rgba(6, 182, 212, 0.5);'>
+                <div style='font-size: 1.1em; font-weight: 600; margin-bottom: 0.5rem; color: #06b6d4;'>📊 Vision OCR Summary (Updated)</div>
+                <div style='display: flex; gap: 2rem; justify-content: center; font-size: 1.05em;'>
+                    <div>✅ <strong style='color: #34d399;'>{vision_yes} pages</strong> WITH vision</div>
+                    <div>⚡ <strong style='color: #fbbf24;'>{vision_no} pages</strong> WITHOUT vision</div>
+                </div>
+            </div>
+            """
+
+            return summary_box
+
+        except Exception as e:
+            self.processor.logger.error(f"Error refreshing vision summary: {e}")
+            return f"<div class='status-box status-error'>❌ Error refreshing summary: {str(e)}</div>"
+
+    def analyze_document_for_vision(self, uploaded_file, page_ranges_str):
+        """Analyze document and generate vision OCR recommendations."""
+        from vision_recommendation_agent import VisionRecommendationAgent
+        from api_client import APIClient
+
+        if not uploaded_file:
+            self.processor.logger.log_warning("Vision analysis: No file uploaded")
+            return (
+                "<div class='status-box status-error'>❌ No file uploaded</div>",
+                None,
+                gr.update(visible=False),  # table
+                gr.update(visible=False),  # refresh button
+                "",                         # summary box content
+                gr.update(visible=False)   # summary box
+            )
+
+        try:
+            # Log start of analysis
+            self.processor.logger.log_step(f"🔎 Starting vision analysis for: {Path(uploaded_file.name).name}")
+            if page_ranges_str and page_ranges_str.strip():
+                self.processor.logger.log_step(f"📄 Page ranges: {page_ranges_str}")
+            else:
+                self.processor.logger.log_step("📄 Analyzing all pages")
+
+            # Initialize vision recommendation agent
+            api_client = APIClient(config)
+            vision_agent = VisionRecommendationAgent(api_client, self.processor.logger)
+
+            # Show analyzing status
+            analyzing_status = "<div class='status-box status-processing'>⏳ Analyzing pages...</div>"
+
+            # Analyze document
+            self.processor.logger.log_step("🤖 Running vision recommendation agent...")
+            result = vision_agent.process(
+                input_data={
+                    "file_path": uploaded_file.name,
+                    "page_ranges": page_ranges_str if page_ranges_str and page_ranges_str.strip() else None
+                }
+            )
+
+            if not result.success:
+                self.processor.logger.error(f"Vision recommendation failed: {result.metadata.get('error')}")
+                return (
+                    f"<div class='status-box status-error'>❌ Analysis failed: {result.metadata.get('error')}</div>",
+                    None,
+                    gr.update(visible=False),  # table
+                    gr.update(visible=False),  # refresh button
+                    "",                         # summary box content
+                    gr.update(visible=False)   # summary box
+                )
+
+            # Store recommendations
+            self.vision_recommendations = result.content
+
+            # Format for dataframe display (without thumbnails in table)
+            table_data = []
+            for rec in result.content:
+                table_data.append([
+                    rec["page"],
+                    rec["recommendation"],
+                    rec["reason"]
+                ])
+
+            # Create separate HTML gallery for thumbnails (listeners attached via MutationObserver in header)
+            thumbnails_html = "<div id='thumbnailGallery' style='display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; margin-top: 1rem;'>"
+
+            for rec in result.content:
+                if rec.get("thumbnail"):
+                    page_num = rec["page"]
+                    recommendation = rec["recommendation"]
+                    border_color = "#10b981" if recommendation == "YES" else "#6b7280"
+                    full_image = rec.get("full_image", rec["thumbnail"])  # Fallback to thumbnail if full_image not available
+                    thumbnails_html += f"""
+                    <div style='text-align: center;'>
+                        <div style='font-size: 0.9em; color: #f0f9ff; margin-bottom: 0.5rem; font-weight: 600;'>
+                            Page {page_num} - {recommendation}
+                        </div>
+                        <img class='thumbnail-image'
+                             data-page='{page_num}'
+                             data-full-image='data:image/png;base64,{full_image}'
+                             src='data:image/png;base64,{rec["thumbnail"]}'
+                             style='max-width: 100%; height: auto; cursor: pointer; border: 3px solid {border_color}; border-radius: 8px; transition: all 0.3s ease;'
+                             onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 8px 16px rgba(0,0,0,0.3)';"
+                             onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none';"
+                             title='Click to view full size' />
+                    </div>
+                    """
+
+            thumbnails_html += "</div>"
+
+            # Count recommendations
+            vision_yes = sum(1 for rec in result.content if rec["recommendation"] == "YES")
+            vision_no = sum(1 for rec in result.content if rec["recommendation"] == "NO")
+
+            # Log analysis results
+            self.processor.logger.log_success(f"✅ Vision analysis complete!")
+            self.processor.logger.log_step(f"📊 Results: {vision_yes} pages WITH vision, {vision_no} pages WITHOUT vision")
+
+            # Log individual page recommendations
+            for rec in result.content:
+                method_emoji = "🧠" if rec.get("method") == "vision" else "⚡"
+                self.processor.logger.log_step(
+                    f"  {method_emoji} Page {rec['page']}: {rec['recommendation']} - {rec['reason']} "
+                    f"(confidence: {rec.get('confidence', 0):.2f}, method: {rec.get('method', 'unknown')})"
+                )
+
+            success_status = f"""
+            <div class='status-box status-success'>
+                ✅ Analysis complete!
+                <br><strong>{vision_yes} pages</strong> need vision OCR,
+                <strong>{vision_no} pages</strong> don't
+                <br>Edit table if needed, then click Process
+            </div>
+            """
+
+            summary_box = f"""
+            <div class='status-box' style='background: rgba(6, 182, 212, 0.15) !important; border: 2px solid rgba(6, 182, 212, 0.5);'>
+                <div style='font-size: 1.1em; font-weight: 600; margin-bottom: 0.5rem; color: #06b6d4;'>📊 Vision OCR Summary</div>
+                <div style='display: flex; gap: 2rem; justify-content: center; font-size: 1.05em;'>
+                    <div>✅ <strong style='color: #34d399;'>{vision_yes} pages</strong> WITH vision</div>
+                    <div>⚡ <strong style='color: #fbbf24;'>{vision_no} pages</strong> WITHOUT vision</div>
+                </div>
+            </div>
+            """
+
+            # Return status, table data, summary, and thumbnails for Analyze tab display
+            return (
+                success_status,
+                table_data,
+                gr.update(visible=True),  # table visible
+                gr.update(visible=True),  # refresh button visible
+                summary_box,               # summary box content
+                gr.update(visible=True),   # summary box visible
+                thumbnails_html,           # thumbnail gallery HTML
+                gr.update(visible=True)    # gallery visible
+            )
+
+        except Exception as e:
+            self.processor.logger.error(f"Error analyzing document for vision: {e}")
+            import traceback
+            traceback.print_exc()
+            return (
+                f"<div class='status-box status-error'>❌ Error: {str(e)}</div>",
+                None,
+                gr.update(visible=False),  # table
+                gr.update(visible=False),  # refresh button
+                "",                         # summary box content
+                gr.update(visible=False),  # summary box
+                "",                         # thumbnail gallery HTML
+                gr.update(visible=False)   # gallery
+            )
+
     def create_interface(self):
         """Create the Gradio interface."""
-        with gr.Blocks(title="Document Ingestion - Agent Edition", css=self.get_css()) as demo:
-            
-            # Header
+
+        # Custom JavaScript for thumbnail click handlers and overlay
+        custom_js = """
+        function() {
+            console.log('Gradio custom JS executing...');
+
+            // Setup overlay close handlers
+            function setupOverlayHandlers() {
+                const overlay = document.getElementById('imageOverlay');
+                const closeBtn = document.getElementById('overlayClose');
+
+                if (overlay && !overlay.hasAttribute('data-handlers-attached')) {
+                    overlay.setAttribute('data-handlers-attached', 'true');
+
+                    // Click on overlay background to close
+                    overlay.addEventListener('click', function(e) {
+                        if (e.target.id === 'imageOverlay') {
+                            overlay.classList.remove('show');
+                            document.body.style.overflow = 'auto';
+                        }
+                    });
+
+                    // Click on X button to close
+                    if (closeBtn) {
+                        closeBtn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            overlay.classList.remove('show');
+                            document.body.style.overflow = 'auto';
+                        });
+                    }
+
+                    console.log('✅ Overlay close handlers attached');
+                }
+            }
+
+            // Function to attach click listeners to thumbnails
+            function attachThumbnailListeners() {
+                const images = document.querySelectorAll('.thumbnail-image');
+                let attachedCount = 0;
+
+                images.forEach(function(img) {
+                    if (!img.hasAttribute('data-click-attached')) {
+                        img.setAttribute('data-click-attached', 'true');
+                        img.addEventListener('click', function() {
+                            // Use full-resolution image instead of thumbnail
+                            const fullImageSrc = this.getAttribute('data-full-image') || this.src;
+                            const pageNum = this.getAttribute('data-page');
+
+                            const overlay = document.getElementById('imageOverlay');
+                            const overlayImg = document.getElementById('overlayImage');
+                            const caption = document.getElementById('overlayCaption');
+
+                            if (overlay && overlayImg && caption) {
+                                overlayImg.src = fullImageSrc;
+                                caption.textContent = 'Page ' + pageNum;
+                                overlay.classList.add('show');
+                                document.body.style.overflow = 'hidden';
+                            }
+                        });
+                        attachedCount++;
+                    }
+                });
+
+                if (attachedCount > 0) {
+                    console.log('✅ Attached click listeners to ' + attachedCount + ' thumbnails');
+                }
+            }
+
+            // Setup overlay handlers immediately
+            setupOverlayHandlers();
+
+            // Use MutationObserver to detect when thumbnails are added
+            const observer = new MutationObserver(function(mutations) {
+                attachThumbnailListeners();
+                setupOverlayHandlers(); // Re-check in case overlay was re-rendered
+            });
+
+            // Start observing
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+
+            // Try immediately
+            attachThumbnailListeners();
+
+            console.log('🔍 MutationObserver set up for thumbnails');
+        }
+        """
+
+        with gr.Blocks(title="Document Ingestion - Agent Edition", css=self.get_css(), js=custom_js) as demo:
+
+            # Header with Navigation
             gr.HTML("""
                 <div class="main-header">
                     <h1>Document Ingestion</h1>
                     <p style="font-size: 1.2em; color: #34d399;">Agent-powered OCR with intelligent formatting</p>
                     <div style="margin-top: 0.5rem; font-size: 0.9em; opacity: 0.8;">
-                        <span style="color: #60a5fa;">OpenAI Vision</span> • 
-                        <span style="color: #c084fc;">Anthropic Claude</span> • 
+                        <span style="color: #60a5fa;">OpenAI Vision</span> •
+                        <span style="color: #c084fc;">Anthropic Claude</span> •
                         <span style="color: #fbbf24;">Multi-Agent Pipeline</span>
                     </div>
                 </div>
+
+                <!-- Image Overlay Modal -->
+                <div id="imageOverlay">
+                    <span id="overlayClose">&times;</span>
+                    <img id="overlayImage" src="" alt="Page preview">
+                    <div id="overlayCaption"></div>
+                </div>
+
+                <script>
+                function showImageOverlay(imageSrc, pageNum) {
+                    const overlay = document.getElementById('imageOverlay');
+                    const img = document.getElementById('overlayImage');
+                    const caption = document.getElementById('overlayCaption');
+
+                    img.src = imageSrc;
+                    caption.textContent = 'Page ' + pageNum;
+                    overlay.classList.add('show');
+
+                    // Prevent body scroll when overlay is open
+                    document.body.style.overflow = 'hidden';
+                }
+
+                function closeOverlay(event) {
+                    // Only close if clicking the background or close button
+                    if (event.target.id === 'imageOverlay' || event.target.id === 'overlayClose') {
+                        const overlay = document.getElementById('imageOverlay');
+                        overlay.classList.remove('show');
+                        document.body.style.overflow = 'auto';
+                    }
+                }
+
+                // Close overlay with Escape key
+                document.addEventListener('keydown', function(event) {
+                    if (event.key === 'Escape') {
+                        const overlay = document.getElementById('imageOverlay');
+                        if (overlay.classList.contains('show')) {
+                            overlay.classList.remove('show');
+                            document.body.style.overflow = 'auto';
+                        }
+                    }
+                });
+                </script>
             """)
-            
+
+            # Navigation Bar
             with gr.Row():
-                # Left Panel - Controls
-                with gr.Column(scale=1, elem_classes="left-panel"):
-                    
-                    gr.HTML('<div class="section-header">📁 Upload Document</div>')
-                    pdf_input = gr.File(label="File type: PDF, MD, or TXT", file_types=[".pdf", ".md", ".markdown",".txt"])
-                    
-                    # Page ranges input
-                    page_ranges_input = gr.Textbox(
-                        label="Page Ranges (Optional)",
-                        placeholder="e.g., 1-5, 10, 15-20 (leave blank for all pages)",
-                        info="Specify pages to process. Examples: '1-5' for pages 1-5, '1,3,5' for specific pages, '1-3,10-15' for multiple ranges"
-                    )
-                    
-                    with gr.Row():
-                        process_btn = gr.Button("🚀 Process", variant="primary", elem_classes="primary-btn")
-                        clear_btn = gr.Button("🗑️ Clear", variant="secondary", visible=False, elem_classes="secondary-btn")
-                        abort_btn = gr.Button("🚫 Abort", variant="secondary", visible=False, elem_classes="secondary-btn")
-                    
-                    gr.HTML('<div class="section-header">📊 Status</div>')
-                    status_output = gr.HTML(value="<div class='status-box'>⏳ Ready to process document...</div>")
-                    
-                    gr.HTML('<div class="section-header">📈 Metrics</div>')
-                    metrics_output = gr.HTML(value="<div class='status-box'>Metrics will appear during processing...</div>")
-                    
-                    gr.HTML('<div class="section-header">⚙️ Configuration</div>')
-                    gr.HTML(f"""
-                        <div class="status-box">
-                            <p><strong>DPI:</strong> {config.dpi}</p>
-                            <p><strong>Model Used:</strong> {config.openai_model}</p>
+                document_nav_btn = gr.Button("📄 DOCUMENT OCR", size="lg", elem_classes="nav-btn nav-btn-doc")
+                excel_nav_btn = gr.Button("📊 EXCEL PROCESSOR", size="lg", elem_classes="nav-btn nav-btn-excel")
+
+            # PAGE 1: Document OCR (existing interface)
+            document_page = gr.Column(visible=True)
+            with document_page:
+                with gr.Row():
+                    # Left Panel - Controls
+                    with gr.Column(scale=1, elem_classes="left-panel"):
+
+                        gr.HTML('<div class="section-header">📁 Upload Document</div>')
+                        pdf_input = gr.File(label="File type: PDF, MD, TXT", file_types=[".pdf", ".md", ".markdown", ".txt"])
+
+                        # Page ranges input
+                        page_ranges_input = gr.Textbox(
+                            label="Page Ranges (Optional)",
+                            placeholder="e.g., 1-5, 10, 15-20 (leave blank for all pages)",
+                            info="Specify pages to process. Examples: '1-5' for pages 1-5, '1,3,5' for specific pages, '1-3,10-15' for multiple ranges"
+                        )
+
+                        with gr.Row():
+                            process_btn = gr.Button("🚀 Process", elem_classes="primary-btn")
+                            clear_btn = gr.Button("🗑️ Clear", visible=False, elem_classes="secondary-btn")
+                            abort_btn = gr.Button("🚫 Abort", visible=False, elem_classes="secondary-btn")
+
+                        gr.HTML('<div class="section-header">📊 Status</div>')
+                        status_output = gr.HTML(value="<div class='status-box'>⏳ Ready to process document...</div>")
+
+                        gr.HTML('<div class="section-header">📈 Metrics</div>')
+                        metrics_output = gr.HTML(value="<div class='status-box'>Metrics will appear during processing...</div>")
+
+                        gr.HTML('<div class="section-header">⚙️ Configuration</div>')
+                        gr.HTML(f"""
+                            <div class="status-box">
+                                <p><strong>DPI:</strong> {config.dpi}</p>
+                                <p><strong>Model Used:</strong> {config.openai_model}</p>
+                            </div>
+                        """)
+
+                        # Feedback Form Section
+                        if config.tally_form_id:
+                            gr.HTML('<div class="section-header">💬 Feedback</div>')
+                            gr.HTML(f"""
+                                <div class="feedback-form-container">
+                                    <div style="padding: 1.5rem; text-align: center;">
+                                        <p style="margin-bottom: 1rem; color: #94a3b8;">Have feedback or suggestions?</p>
+                                        <a href="https://tally.so/r/{config.tally_form_id}"
+                                           target="_blank"
+                                           style="
+                                               display: inline-block;
+                                               padding: 0.75rem 1.5rem;
+                                               background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+                                               color: white;
+                                               text-decoration: none;
+                                               border-radius: 8px;
+                                               font-weight: 600;
+                                               transition: transform 0.2s;
+                                           "
+                                           onmouseover="this.style.transform='scale(1.05)'"
+                                           onmouseout="this.style.transform='scale(1)'">
+                                            📝 Open Feedback Form
+                                        </a>
+                                    </div>
+                                </div>
+                            """)
+
+                    # Right Panel - Results
+                    with gr.Column(scale=2):
+
+                        # Processing Options - Dropdown menus (checkboxes don't work in Gradio)
+                        gr.HTML("""
+                        <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid rgba(255,255,255,0.1);">
+                            <h3 style="margin: 0; color: #f0f9ff;">⚙️ Processing Options</h3>
                         </div>
-                    """)
-                
-                # Right Panel - Results
-                with gr.Column(scale=2):
-                    
-                    with gr.Tabs():
-                        with gr.Tab("📄 Document"):
-                            # Processing animation with your blue robot orb video
-                            processing_animation = gr.HTML(
-                                value="",
+                        """)
+
+                        with gr.Row():
+                            enable_summary_toggle = gr.Dropdown(
+                                label="📊 Summary Generation",
+                                choices=["Disabled", "Enabled"],
+                                value="Disabled",
+                                info="Generate executive summary of document"
+                            )
+                            enable_quality_report_toggle = gr.Dropdown(
+                                label="✅ Quality Report",
+                                choices=["Disabled", "Enabled"],
+                                value="Disabled",
+                                info="Detailed quality analysis and metrics"
+                            )
+                            enable_raw_ocr_toggle = gr.Dropdown(
+                                label="📝 Raw OCR Output",
+                                choices=["Disabled", "Enabled"],
+                                value="Disabled",
+                                info="Unformatted OCR extraction results"
+                            )
+
+                        with gr.Tabs():
+                            with gr.Tab("🔎 Analyze"):
+                                gr.HTML('<div class="section-header" style="text-align: center; margin-bottom: 20px;">📊 AI Vision OCR Analysis</div>')
+
+                                gr.Markdown("""
+                                ### How it works:
+                                1. **Upload a PDF** in the left panel
+                                2. **Click "Analyze Document"** below to get AI recommendations
+                                3. **Review the table** - AI will recommend YES/NO for vision OCR per page
+                                4. **Edit if needed** - Click any cell to change YES ↔ NO
+                                5. **Click "🚀 Process"** to run with your settings
+
+                                **Why analyze first?**
+                                - Saves API costs by only using vision where needed
+                                - Faster processing for text-only pages
+                                - You control the final decision
+                                """)
+
+                                # Center-aligned button row
+                                with gr.Row():
+                                    analyze_btn = gr.Button("🔎 Analyze Document", size="lg", variant="secondary", scale=1)
+
+                                analyze_status = gr.HTML(value="<div class='status-box'>⏳ Upload a PDF, then click Analyze</div>")
+
+                                # Show vision recommendation table here in main view
+                                vision_recommendation_table_display = gr.Dataframe(
+                                    label="Page-by-Page Vision Recommendations (Editable)",
+                                    headers=["Page", "Recommended", "Reason"],
+                                    datatype=["number", ["YES", "NO"], "str"],
+                                    interactive=True,
+                                    row_count=(1, "dynamic"),
+                                    col_count=(3, "fixed"),
+                                    wrap=True,
+                                    visible=False
+                                )
+
+                                # Thumbnail gallery (clickable)
+                                vision_thumbnails_gallery = gr.HTML(
+                                    value="",
+                                    visible=False,
+                                    label="Page Thumbnails (Click to enlarge)"
+                                )
+
+                                gr.Markdown("**💡 Tip:** Change 'YES' to 'NO' (or vice versa) in the Recommended column to override AI suggestions.")
+
+                                # Summary box that updates after table edits
+                                with gr.Row():
+                                    refresh_summary_btn = gr.Button("🔄 Refresh Summary", variant="secondary", size="sm", visible=False)
+
+                                vision_summary_box = gr.HTML(value="", visible=False)
+
+                            with gr.Tab("📄 Document"):
+                                # Processing animation with your blue robot orb video
+                                processing_animation = gr.HTML(
+                                    value="",
+                                    visible=False
+                                )
+                                content_output = gr.Markdown(
+                                    value="*Processed document content will appear here...*",
+                                    show_copy_button=True
+                                )
+
+                            with gr.Tab("📋 Summary"):
+                                with gr.Row():
+                                    with gr.Column(scale=2):
+                                        summary_output = gr.Markdown(
+                                            value="*Benefits and eligibility summary will appear here after processing...*",
+                                            show_copy_button=True
+                                        )
+                                    with gr.Column(scale=1):
+                                        gr.HTML("<h4>📊 Summary Options</h4>")
+                                        summary_stats_output = gr.HTML(
+                                            value="<div class='status-box'>Summary statistics will appear here...</div>"
+                                        )
+                                        with gr.Row():
+                                            download_md_btn = gr.Button("📝 Download MD", variant="secondary", size="sm")
+                                            download_pdf_btn = gr.Button("📄 Download PDF", variant="secondary", size="sm")
+                                        summary_download_output = gr.File(label="Summary Downloads", interactive=False, visible=False, type="filepath")
+
+                            with gr.Tab("🔍 Quality Report"):
+                                # Comparison summary at top
+                                with gr.Row():
+                                    evaluation_comparison_summary = gr.HTML(
+                                        value="<div class='status-box'>Evaluation comparison will appear here after processing...</div>"
+                                    )
+
+                                # Side-by-side comparison
+                                with gr.Row():
+                                    with gr.Column(scale=1):
+                                        gr.HTML("<h4 style='text-align: center; color: #2563eb;'>🤖 OpenAI GPT-4V Results</h4>")
+                                        openai_evaluation = gr.Markdown(
+                                            value="*OpenAI evaluation results will appear here...*",
+                                            show_copy_button=True
+                                        )
+
+                                    with gr.Column(scale=1):
+                                        gr.HTML("<h4 style='text-align: center; color: #7c3aed;'>🧠 Anthropic Claude Results</h4>")
+                                        anthropic_evaluation = gr.Markdown(
+                                            value="*Anthropic evaluation results will appear here...*",
+                                            show_copy_button=True
+                                        )
+
+                                # Download options at bottom
+                                with gr.Row():
+                                    with gr.Column(scale=2):
+                                        evaluation_stats_output = gr.HTML(
+                                            value="<div class='status-box'>Evaluation metrics will appear here...</div>"
+                                        )
+                                    with gr.Column(scale=1):
+                                        download_eval_btn = gr.Button("📥 Download Full Report", variant="secondary", size="sm")
+                                        evaluation_download_output = gr.File(label="Evaluation Report", interactive=False, visible=False, type="filepath")
+
+                            with gr.Tab("🔬 Raw Vision OCR"):
+                                raw_ocr_output = gr.Textbox(
+                                    label="Raw Vision OCR Output",
+                                    lines=30,
+                                    max_lines=None,  # Remove max_lines limit to show full content
+                                    value="Raw OCR output will appear here after processing...",
+                                    interactive=False,
+                                    show_copy_button=True,
+                                    autoscroll=True  # Auto-scroll to show more content
+                                )
+
+                            with gr.Tab("💾 Download"):
+                                file_output = gr.File(label="Processed File", interactive=False, type="filepath")
+                                analytics_output = gr.HTML(value="<div class='status-box'>Analytics will appear after processing...</div>")
+
+                            with gr.Tab("📋 Analysis Logs"):
+                                logs_output = gr.Textbox(
+                                    value="Processing logs will appear here...",
+                                    label="",
+                                    lines=30,
+                                    max_lines=50,
+                                    show_copy_button=True,
+                                    interactive=False,
+                                    elem_classes=["logs-output"]
+                                )
+
+                                # AI Metadata Cleaning Report
+                                gr.HTML('<div class="section-header" style="margin-top: 20px;">🧹 AI Metadata Cleaning Report</div>')
+                                cleaning_report_output = gr.Markdown(
+                                    value="*AI metadata cleaning report will appear here after processing...*",
+                                    show_copy_button=True,
+                                    visible=True
+                                )
+
+            # PAGE 2: Excel Processor (dedicated full-width interface)
+            excel_page = gr.Column(visible=False)
+            with excel_page:
+                gr.HTML('<div class="section-header" style="text-align: center; font-size: 1.5rem;">📊 Excel Table Processor</div>')
+                gr.Markdown("**Upload and configure how to extract data from Excel/CSV files**")
+
+                with gr.Row():
+                    # Left: Upload and Configuration
+                    with gr.Column(scale=1):
+                        gr.HTML('<div class="section-header">📁 Upload Excel File</div>')
+                        excel_input = gr.File(
+                            label="File type: Excel or CSV",
+                            file_types=[".xlsx", ".xls", ".csv"]
+                        )
+
+                        gr.HTML('<div class="section-header">⚙️ Table Structure</div>')
+                        excel_header_rows = gr.Number(
+                            label="Number of Header Rows",
+                            value=1,
+                            minimum=0,
+                            maximum=10,
+                            step=1,
+                            info="How many rows at the top are headers (not data)"
+                        )
+
+                        excel_include_headers = gr.Dropdown(
+                            choices=[("Off", False), ("On", True)],
+                            value=False,
+                            label="Include Section Headers",
+                            info="Add H2 section headers to group related data"
+                        )
+
+                        with gr.Row():
+                            excel_process_btn = gr.Button("🚀 Process Excel", elem_classes="primary-btn")
+                            excel_clear_btn = gr.Button("🗑️ Clear", visible=False, elem_classes="secondary-btn")
+                            excel_abort_btn = gr.Button("🚫 Abort", visible=False, elem_classes="secondary-btn")
+
+                        gr.HTML('<div class="section-header">📊 Status</div>')
+                        excel_status_output = gr.HTML(value="<div class='status-box'>⏳ Ready to process Excel file...</div>")
+
+                        gr.HTML('<div class="section-header">📈 Metrics</div>')
+                        excel_metrics_output = gr.HTML(value="<div class='status-box'>Metrics will appear during processing...</div>")
+
+                    # Right: Preview and Column Configuration
+                    with gr.Column(scale=2):
+                        gr.HTML('<div class="section-header">📑 Sheet Selection & Configuration</div>')
+
+                        with gr.Row():
+                            excel_sheet_dropdown = gr.Dropdown(
+                                choices=[],
+                                value=None,
+                                label="Select Sheet to Configure",
+                                info="Choose one sheet at a time",
                                 visible=False
                             )
-                            content_output = gr.Markdown(
-                                value="*Processed document content will appear here...*", 
-                                show_copy_button=True
-                            )
-                        
-                        with gr.Tab("📋 Summary"):
-                            with gr.Row():
-                                with gr.Column(scale=2):
-                                    summary_output = gr.Markdown(
-                                        value="*Benefits and eligibility summary will appear here after processing...*",
-                                        show_copy_button=True
-                                    )
-                                with gr.Column(scale=1):
-                                    gr.HTML("<h4>📊 Summary Options</h4>")
-                                    summary_stats_output = gr.HTML(
-                                        value="<div class='status-box'>Summary statistics will appear here...</div>"
-                                    )
-                                    with gr.Row():
-                                        download_md_btn = gr.Button("📝 Download MD", variant="secondary", size="sm")
-                                        download_pdf_btn = gr.Button("📄 Download PDF", variant="secondary", size="sm")
-                                    summary_download_output = gr.File(label="Summary Downloads", interactive=False, visible=False)
-                        
-                        with gr.Tab("🔍 Quality Report"):
-                            # Comparison summary at top
-                            with gr.Row():
-                                evaluation_comparison_summary = gr.HTML(
-                                    value="<div class='status-box'>Evaluation comparison will appear here after processing...</div>"
+
+                        gr.Markdown("**Workflow:** Select sheet → Preview data → Configure columns → Save → Repeat for other sheets → Process")
+
+                        gr.HTML('<div class="section-header">👁️ Preview (First 10 rows)</div>')
+                        excel_current_sheet_label = gr.HTML(value="", visible=False)
+                        excel_preview = gr.Dataframe(
+                            label="Data Preview",
+                            interactive=False,
+                            wrap=True
+                        )
+
+                        gr.HTML('<div class="section-header">🎛️ Column Configuration</div>')
+                        gr.Markdown("""
+                        **Configure how each column should be processed:**
+                        - **Label 1, Label 2, Label 3...** - Columns that form the row identifier (concatenated left-to-right with " - ")
+                        - **Data** - Columns containing values to extract
+                        - **Ignore** - Skip this column entirely
+                        """)
+
+                        excel_column_config = gr.Dataframe(
+                            label="Column Roles",
+                            headers=["Column", "Role"],
+                            datatype=["str", "str"],
+                            interactive=True,
+                            row_count=(1, "dynamic"),
+                            col_count=(2, "fixed")
+                        )
+
+                        with gr.Row():
+                            excel_save_config_btn = gr.Button("💾 Save Configuration", size="sm", visible=False, elem_classes="primary-btn")
+                            excel_clear_saved_btn = gr.Button("🗑️ Clear All Saved", size="sm", visible=False, elem_classes="secondary-btn")
+
+                        gr.HTML('<div class="section-header">✅ Saved Configurations</div>')
+                        excel_saved_sheets_display = gr.HTML(
+                            value="<div class='status-box'>No sheets configured yet. Select a sheet above, configure columns, then click Save.</div>"
+                        )
+
+                # Results Section (Full Width)
+                with gr.Row():
+                    with gr.Column():
+                        gr.HTML('<div class="section-header">📄 Results</div>')
+
+                        with gr.Tabs():
+                            with gr.Tab("📄 Formatted Output"):
+                                excel_processing_animation = gr.HTML(value="", visible=False)
+                                excel_content_output = gr.Markdown(
+                                    value="*Processed Excel content will appear here...*",
+                                    show_copy_button=True
                                 )
-                            
-                            # Side-by-side comparison
-                            with gr.Row():
-                                with gr.Column(scale=1):
-                                    gr.HTML("<h4 style='text-align: center; color: #2563eb;'>🤖 OpenAI GPT-4V Results</h4>")
-                                    openai_evaluation = gr.Markdown(
-                                        value="*OpenAI evaluation results will appear here...*",
-                                        show_copy_button=True
-                                    )
-                                
-                                with gr.Column(scale=1):
-                                    gr.HTML("<h4 style='text-align: center; color: #7c3aed;'>🧠 Anthropic Claude Results</h4>")
-                                    anthropic_evaluation = gr.Markdown(
-                                        value="*Anthropic evaluation results will appear here...*",
-                                        show_copy_button=True
-                                    )
-                            
-                            # Download options at bottom
-                            with gr.Row():
-                                with gr.Column(scale=2):
-                                    evaluation_stats_output = gr.HTML(
-                                        value="<div class='status-box'>Evaluation metrics will appear here...</div>"
-                                    )
-                                with gr.Column(scale=1):
-                                    download_eval_btn = gr.Button("📥 Download Full Report", variant="secondary", size="sm")
-                                    evaluation_download_output = gr.File(label="Evaluation Report", interactive=False, visible=False)
-                        
-                        with gr.Tab("🔬 Raw Vision OCR"):
-                            raw_ocr_output = gr.Textbox(
-                                label="Raw Vision OCR Output", 
-                                lines=30,
-                                max_lines=None,  # Remove max_lines limit to show full content
-                                value="Raw OCR output will appear here after processing...",
-                                interactive=False,
-                                show_copy_button=True,
-                                autoscroll=True  # Auto-scroll to show more content
-                            )
-                        
-                        with gr.Tab("💾 Download"):
-                            file_output = gr.File(label="Processed File", interactive=False)
-                            analytics_output = gr.HTML(value="<div class='status-box'>Analytics will appear after processing...</div>")
-            
-            # Hidden component for web event communication
+
+                            with gr.Tab("💾 Download"):
+                                excel_file_output = gr.File(label="Processed File", interactive=False, type="filepath")
+                                excel_analytics_output = gr.HTML(value="<div class='status-box'>Analytics will appear after processing...</div>")
+
+            # Hidden components for cross-page compatibility
             web_event_bridge = gr.Textbox(visible=False, elem_id="web-event-bridge")
-            
+            dummy_excel_config = gr.State(None)
+            dummy_header_rows = gr.State(None)
+            dummy_include_headers = gr.State(None)
+
+            # Navigation handlers - switch between pages and update button styles
+            document_nav_btn.click(
+                fn=lambda: (
+                    gr.update(visible=True),  # Show document page
+                    gr.update(visible=False),  # Hide excel page
+                    gr.update(elem_classes="nav-btn nav-btn-doc"),  # Active: cyan
+                    gr.update(elem_classes="nav-btn nav-btn-excel")  # Inactive: gray
+                ),
+                outputs=[document_page, excel_page, document_nav_btn, excel_nav_btn],
+                show_api=False
+            )
+
+            excel_nav_btn.click(
+                fn=lambda: (
+                    gr.update(visible=False),  # Hide document page
+                    gr.update(visible=True),  # Show excel page
+                    gr.update(elem_classes="nav-btn nav-btn-excel-inactive"),  # Inactive: gray
+                    gr.update(elem_classes="nav-btn nav-btn-excel-active")  # Active: cyan
+                ),
+                outputs=[document_page, excel_page, document_nav_btn, excel_nav_btn],
+                show_api=False
+            )
+
+            # Document page: PDF upload handler to update analyze status
+            pdf_input.upload(
+                fn=self.handle_document_upload,
+                inputs=[pdf_input],
+                outputs=[analyze_status],
+                show_api=False
+            )
+
+            # Document page: Analyze button for vision recommendations
+            analyze_btn.click(
+                fn=self.analyze_document_for_vision,
+                inputs=[pdf_input, page_ranges_input],
+                outputs=[
+                    analyze_status,
+                    vision_recommendation_table_display,
+                    vision_recommendation_table_display,  # visibility
+                    refresh_summary_btn,                  # visibility
+                    vision_summary_box,                   # content
+                    vision_summary_box,                   # visibility
+                    vision_thumbnails_gallery,            # gallery HTML
+                    vision_thumbnails_gallery             # gallery visibility
+                ],
+                show_api=False
+            )
+
+            # Refresh summary button
+            refresh_summary_btn.click(
+                fn=self.refresh_vision_summary,
+                inputs=[vision_recommendation_table_display],
+                outputs=[vision_summary_box],
+                show_api=False
+            )
+
+            # Excel page: File upload handler to show preview and config
+            excel_input.upload(
+                fn=self.handle_excel_upload,
+                inputs=[excel_input],
+                outputs=[excel_preview, excel_column_config, excel_sheet_dropdown, excel_current_sheet_label,
+                        excel_save_config_btn, excel_clear_saved_btn, excel_saved_sheets_display],
+                show_api=False
+            )
+
+            # Excel page: Sheet dropdown change - preview that sheet
+            excel_sheet_dropdown.change(
+                fn=self.preview_excel_sheet,
+                inputs=[excel_input, excel_sheet_dropdown],
+                outputs=[excel_preview, excel_column_config, excel_current_sheet_label],
+                show_api=False
+            )
+
+            # Excel page: Save configuration button
+            excel_save_config_btn.click(
+                fn=self.save_sheet_configuration,
+                inputs=[excel_sheet_dropdown, excel_column_config, excel_header_rows, excel_include_headers],
+                outputs=[excel_saved_sheets_display],
+                show_api=False
+            )
+
+            # Excel page: Clear saved configurations button
+            excel_clear_saved_btn.click(
+                fn=self.clear_saved_configurations,
+                outputs=[excel_saved_sheets_display],
+                show_api=False
+            )
+
+            # Document page: Process button (no Excel config needed)
             process_click = process_btn.click(
                 fn=self.process_wrapper,            # generator
-                inputs=[pdf_input, page_ranges_input],
+                inputs=[pdf_input, page_ranges_input, dummy_excel_config, dummy_header_rows, dummy_include_headers,
+                       enable_summary_toggle, enable_quality_report_toggle, enable_raw_ocr_toggle, vision_recommendation_table_display],
                 outputs=[content_output, summary_output, summary_stats_output, evaluation_comparison_summary, openai_evaluation, anthropic_evaluation, evaluation_stats_output,
-                        status_output, metrics_output, file_output, analytics_output, clear_btn, abort_btn, processing_animation, raw_ocr_output],
+                        status_output, metrics_output, file_output, analytics_output, clear_btn, abort_btn, processing_animation, raw_ocr_output, logs_output, cleaning_report_output],
+                show_api=False,
+                show_progress="full"
+            )
+
+            # Excel page: Process button
+            excel_process_btn.click(
+                fn=self.process_excel_wrapper,
+                inputs=[excel_input],
+                outputs=[excel_content_output, excel_status_output, excel_metrics_output, excel_file_output,
+                        excel_analytics_output, excel_clear_btn, excel_abort_btn, excel_processing_animation],
                 show_api=False,
                 show_progress="full"
             )
             
+            # Document page: Clear button
             clear_btn.click(
                 fn=self.clear_all,
                 outputs=[content_output, summary_output, summary_stats_output, evaluation_comparison_summary, openai_evaluation, anthropic_evaluation, evaluation_stats_output,
-                        status_output, metrics_output, file_output, analytics_output, clear_btn, abort_btn, page_ranges_input, pdf_input, processing_animation, raw_ocr_output],
+                        status_output, metrics_output, file_output, analytics_output, clear_btn, abort_btn, page_ranges_input, pdf_input, processing_animation, raw_ocr_output,
+                        analyze_status, vision_recommendation_table_display, vision_recommendation_table_display, logs_output, cleaning_report_output],
                 show_api=False
             )
 
+            # Excel page: Clear button
+            excel_clear_btn.click(
+                fn=self.clear_excel,
+                outputs=[excel_content_output, excel_status_output, excel_metrics_output, excel_file_output,
+                        excel_analytics_output, excel_clear_btn, excel_abort_btn, excel_input, excel_processing_animation,
+                        excel_preview, excel_column_config],
+                show_api=False
+            )
+
+            # Document page: Abort button
             abort_btn.click(
                 fn=self.abort_processing,
                 inputs=None,
                 outputs=[content_output, summary_output, summary_stats_output, evaluation_comparison_summary, openai_evaluation, anthropic_evaluation, evaluation_stats_output,
                         status_output, metrics_output, file_output, analytics_output, clear_btn, abort_btn, processing_animation],
+                show_api=False
+            )
+
+            # Excel page: Abort button
+            excel_abort_btn.click(
+                fn=self.abort_processing,
+                inputs=None,
+                outputs=[excel_content_output, excel_status_output, excel_metrics_output, excel_file_output,
+                        excel_analytics_output, excel_clear_btn, excel_abort_btn, excel_processing_animation],
                 show_api=False
             )
             
@@ -1460,15 +3025,23 @@ class OCRInterface:
                 outputs=[web_event_bridge],
                 show_api=False
             )
-        
+
         return demo
     
     def _extract_raw_ocr_from_logs(self):
         """Get raw OCR content from OCR engine."""
         if hasattr(self.processor, 'ocr_engine') and self.processor.ocr_engine:
-            return self.processor.ocr_engine.get_debug_raw_ocr_content()
+            raw_content = self.processor.ocr_engine.get_debug_raw_ocr_content()
+            # Add debug info if no content captured
+            if "No raw OCR content captured" in raw_content:
+                debug_info = f"\n\n🔍 Debug Info:\n"
+                debug_info += f"- OCR Engine exists: Yes\n"
+                debug_info += f"- Debug content list size: {len(self.processor.ocr_engine.debug_raw_ocr_content)}\n"
+                debug_info += f"- Vision calls made: {self.processor.ocr_engine.vision_calls_used}\n"
+                return raw_content + debug_info
+            return raw_content
         else:
-            return "No raw OCR content available yet. Process a document to see the raw vision OCR extraction results."
+            return "⚠️ Error: OCR engine not initialized. Cannot retrieve raw OCR content."
 
 def create_ui():
     """Factory function to create the UI."""

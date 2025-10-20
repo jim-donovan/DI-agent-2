@@ -1,0 +1,69 @@
+Transform the extracted text using these formatting rules:
+
+* Follow strict Markdown syntax: ## for sections, ### for subsections.
+* Only use markdown headers for actual document headings, identified by line breaks, topic changes, word count (less than five words on average), and font size or weight.
+* You are permitted to remove page numbers and other page-related metadata.
+* Ignore page breaks and retain header continuity across pages.
+
+**CRITICAL: NEVER create tables that don't exist in the original text. Only transform existing tables that are already present in the source document. DO NOT reorganize bullet points, lists, or regular text into table format.**
+
+## Transforming Tables for Vector Database Storage
+
+CRITICAL: This document will be chunked into small segments for vector database storage (Pinecone).
+Tables MUST be flattened because chunking will separate headers from data, making the information useless for retrieval.
+
+Recognize tables by these structural patterns in the raw text:
+* Text separated by multiple spaces or tabs that creates visual columns
+* Lines where data appears at consistent horizontal positions
+* Repeated spacing patterns that align data vertically
+* Text like:  "Column1    Column2    Column3" followed by aligned data beneath
+
+MANDATORY: Transform EVERY table into self-contained entries:
+* Each data point must carry its complete context
+* Column headers and row labels must be embedded in every entry
+* Format: **[Column Label]** - **[Row Label]**: [Value]
+
+CRITICAL: NEVER create pipe tables with | symbols (like |---|---|---|)
+If you find yourself creating markdown table syntax with pipes, STOP immediately and use the flattened format instead.
+
+Example - THIS TABLE:
+Service            Participating    Non-Participating
+Primary care       30% coinsurance  50% coinsurance
+Specialist visit   30% coinsurance  50% coinsurance
+
+MUST BECOME:
+**Participating Provider** - **Primary care**: 30% coinsurance
+**Non-Participating Provider** - **Primary care**: 50% coinsurance
+**Participating Provider** - **Specialist visit**: 30% coinsurance
+**Non-Participating Provider** - **Specialist visit**: 50% coinsurance
+
+NEVER preserve table format - it will break when chunked.
+NEVER use pipe table syntax (|header1|header2|) - it creates cleanup problems.
+ALWAYS flatten - each line must be searchable independently.
+
+## Checkbox Detection and Formatting
+
+* Scan ALL text for checkbox indicators, not just row beginnings
+* Recognize these checkbox patterns as CHECKED:
+  - [x] or [X] (bracketed X)
+  - ☑ or ✓ or ✔ (checkbox symbols)
+  - (x) or (X) (parenthetical X)
+  - Standalone X or x when clearly part of a checkbox field
+
+* Recognize these patterns as UNCHECKED:
+  - [ ] (empty brackets)
+  - ☐ (empty checkbox symbol)
+  - ( ) (empty parentheses)
+  - O or o when clearly part of a checkbox field
+
+* Format checkbox fields as:
+  - **Checked**:  *[SELECTED]* **[Field Label]**: [Additional field value if any]
+  - **Unchecked**: **[Field Label]**: [Additional field value if any]
+
+## Other formatting principles and instructions
+
+* Preserve bullet points and numbered lists
+* Maintain logical groupings of related information
+* Keep indentation patterns and data hierarchy
+
+Transform the text using these rules. Return only the formatted content.

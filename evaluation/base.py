@@ -96,12 +96,35 @@ class BaseEvaluator(ABC):
         
         # Try to extract JSON from the response
         try:
-            # Look for JSON block in the response
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(0)
-                return json.loads(json_str)
+            # First try parsing the entire response as JSON
+            return json.loads(response.strip())
+        except json.JSONDecodeError:
+            pass
+
+        try:
+            # Look for JSON in code blocks
+            json_block_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response, re.DOTALL)
+            if json_block_match:
+                return json.loads(json_block_match.group(1))
         except (json.JSONDecodeError, AttributeError):
+            pass
+
+        try:
+            # Look for JSON block anywhere in response (match balanced braces)
+            # Find first { and try to parse from there
+            start_idx = response.find('{')
+            if start_idx != -1:
+                # Try to find matching closing brace
+                brace_count = 0
+                for i, char in enumerate(response[start_idx:], start=start_idx):
+                    if char == '{':
+                        brace_count += 1
+                    elif char == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            json_str = response[start_idx:i+1]
+                            return json.loads(json_str)
+        except (json.JSONDecodeError, AttributeError, ValueError):
             pass
         
         # Fallback parsing logic

@@ -3,15 +3,13 @@ Optimized Document Processor with Parallel Processing
 """
 
 import time
-import traceback
 import io
-import re
 from datetime import datetime
 import tempfile
 import os
 import fitz  # PyMuPDF
 from pathlib import Path
-from typing import Optional, Callable, Dict, List
+from typing import Optional, Callable, List, Any
 from dataclasses import dataclass
 import threading
 from PIL import Image
@@ -35,6 +33,16 @@ class ProcessingResult:
     processing_time: float = 0.0
     pages_processed: int = 0
     evaluation_report: Optional[str] = None  # Separate evaluation for UI display
+    total_tokens: int = 0  # Total tokens used across all API calls
+    vision_tokens: int = 0  # Tokens used for vision OCR
+    formatting_tokens: int = 0  # Tokens used for content formatting
+    evaluation_tokens: int = 0  # Tokens used for quality evaluation
+    estimated_cost: float = 0.0  # Estimated cost in USD
+    agent_responses: List[Any] = None  # Agent responses for metadata cleaning report
+    # Component timing breakdown
+    vision_ocr_time: float = 0.0  # Time spent on vision OCR processing
+    quality_report_time: float = 0.0  # Time spent generating quality report
+    summary_time: float = 0.0  # Time spent generating summary
 
 
 class OptimizedDocumentProcessor:
@@ -48,7 +56,15 @@ class OptimizedDocumentProcessor:
         """
         self.logger = ProcessingLogger()
         self.abort_event = threading.Event()
+        
+        # Initialize API client and pass it to the OCR engine
+        from api_client import APIClient
+        from config import config
+        self.api_client = APIClient(config)
+        
         self.ocr_engine = AgentBasedOCREngine(self.logger)
+        # Pass the API client to the OCR engine
+        self.ocr_engine.api_client = self.api_client
         # Give OCR engine access to abort checking
         self.ocr_engine.is_abort_requested = self.is_abort_requested
         self.use_systematic_processing = True  # Enable new systematic pipeline
@@ -91,20 +107,34 @@ class OptimizedDocumentProcessor:
                 img_data = pix.tobytes("ppm")
                 img = Image.open(io.BytesIO(img_data))
                 
-                # Use shared OCR engine to avoid duplicate agent registrations
-                # The shared engine is thread-safe for extraction calls
-                text = self.ocr_engine.extract_page_text_with_agents(page, img, page_no, filename=str(doc_path))
-                stats = self.ocr_engine.get_agent_stats()
-                vision_calls = stats.get("vision_calls_used", 0)
+                # Process the page and get actual vision call count
+                text, vision_calls = self.ocr_engine.extract_page_text_with_agents(page, img, page_no, filename=str(doc_path))
+                
                 return (page_no, text, True, vision_calls)
                 
         except Exception as e:
             self.logger.log_error(f"Page {page_no} failed: {e}")
             return (page_no, "", False, 0)
     
-    def process_document(self, uploaded_file, page_ranges_str: Optional[str] = None, 
-                        progress_callback: Optional[Callable] = None) -> ProcessingResult:
-        """Process document with parallel page processing."""
+    def process_document(self, uploaded_file, page_ranges_str: Optional[str] = None,
+                        progress_callback: Optional[Callable] = None,
+                        excel_structure_config: Optional[dict] = None,
+                        vision_page_settings: Optional[dict] = None,
+                        enable_summary: bool = True,
+                        enable_quality_report: bool = True,
+                        enable_raw_ocr: bool = True) -> ProcessingResult:
+        """Process document with parallel page processing.
+
+        Args:
+            uploaded_file: The file to process
+            page_ranges_str: Optional page ranges (e.g., "1-5, 10, 15-20")
+            progress_callback: Optional callback for progress updates
+            excel_structure_config: Optional Excel structure configuration
+            vision_page_settings: Optional dict mapping page numbers to vision settings {page_num: "YES"/"NO"}
+            enable_summary: Whether to generate summary (default: True)
+            enable_quality_report: Whether to generate quality report (default: True)
+            enable_raw_ocr: Whether to extract raw OCR output (default: True)
+        """
         
         start_time = time.time()
         self.clear_abort()
@@ -123,11 +153,64 @@ class OptimizedDocumentProcessor:
                     evaluation_report=None
                 )
             file_path = Path(uploaded_file.name)
-            file_size = os.path.getsize(file_path)
+            os.path.getsize(file_path)
             file_type = file_path.suffix.lower()
             
             # Analytics removed - can be added back later if needed
             
+            # Handle Excel files
+            if file_type in ['.xlsx', '.xls', '.csv']:
+                from excel_ingestion_agent import ExcelIngestionAgent
+
+                self.logger.log_step(f"📊 Processing Excel file: {file_path.name}")
+
+                excel_agent = ExcelIngestionAgent(self.logger, self.api_client)
+
+                input_data = {
+                    "file_path": str(file_path)
+                }
+
+                context = {
+                    "output_format": "markdown_lists"
+                }
+
+                # Add user-configured structure if provided
+                if excel_structure_config:
+                    context["user_structure"] = excel_structure_config
+                    self.logger.log_step(f"📐 Using user-configured table structure")
+
+                response = excel_agent.process(input_data, context)
+
+                if response.success:
+                    output_file = self.save_output(file_path, response.content)
+                    # Use the processing time from the Excel agent for accuracy
+                    excel_processing_time = response.processing_time
+
+                    return ProcessingResult(
+                        content=response.content,
+                        output_file=output_file,
+                        status=f"✅ Excel processed in {excel_processing_time:.1f}s ({response.metadata['sheets_processed']} sheets)",
+                        logs=self.logger.get_logs(),
+                        success=True,
+                        vision_calls_used=0,
+                        processing_time=excel_processing_time,
+                        pages_processed=response.metadata['sheets_processed'],
+                        evaluation_report=None
+                    )
+                else:
+                    # Use the processing time from the Excel agent even for failures
+                    excel_processing_time = response.processing_time
+                    return ProcessingResult(
+                        content=f"Excel processing failed: {response.error_message}",
+                        output_file=None,
+                        status="Excel processing failed",
+                        logs=self.logger.get_logs(),
+                        success=False,
+                        processing_time=excel_processing_time,
+                        pages_processed=0,
+                        evaluation_report=None
+                    )
+
             # Handle markdown and text files
             if file_type in ['.md', '.markdown', '.txt']:
                 # For non-PDF files, use simple processing
@@ -159,18 +242,25 @@ class OptimizedDocumentProcessor:
             with fitz.open(file_path) as doc:
                 total_pages = len(doc)
                 
-                # Update file upload tracking with page count
-                # Analytics removed - can be added back later if needed
                 
                 # Check if systematic processing is enabled
                 if self.use_systematic_processing and hasattr(self.ocr_engine, 'process_document_systematically'):
                     self.logger.log_step("🚀 Using systematic processing pipeline")
-                    
+
+                    # Log vision settings if provided
+                    if vision_page_settings:
+                        vision_yes_count = sum(1 for v in vision_page_settings.values() if v == "YES")
+                        vision_no_count = sum(1 for v in vision_page_settings.values() if v == "NO")
+                        self.logger.log_step(f"👁️ Vision settings: {vision_yes_count} pages with vision, {vision_no_count} without")
+
                     # Use systematic processing
                     result = self.ocr_engine.process_document_systematically(
                         pdf_document=doc,
                         page_ranges=page_ranges_str or "all",
-                        document_name=file_path.stem
+                        document_name=file_path.stem,
+                        vision_page_settings=vision_page_settings,
+                        enable_quality_report=enable_quality_report,
+                        enable_raw_ocr=enable_raw_ocr
                     )
                     
                     if result["success"]:
@@ -202,10 +292,25 @@ class OptimizedDocumentProcessor:
                             f.write(complete_content)
                         
                         processing_time = time.time() - start_time
-                        
-                        # Track successful processing
-                        # Analytics removed - can be added back later if needed
-                        
+
+                        # Calculate token breakdown and costs
+                        total_tokens = result["metadata"].get("total_tokens_used", 0)
+                        vision_calls = result["metadata"]["vision_calls_used"]
+                        vision_tokens = int(vision_calls * 1500)  # Est. 1500 tokens per vision call
+
+                        # If total_tokens is 0 but we have vision calls, use estimate as baseline
+                        if total_tokens == 0 and vision_calls > 0:
+                            total_tokens = vision_tokens + 2000  # Add est. formatting/eval tokens
+                            formatting_tokens = 2000
+                        else:
+                            formatting_tokens = max(0, total_tokens - vision_tokens)  # Remaining for formatting
+
+                        # Cost calculation (approximate rates)
+                        # Claude Sonnet 4: ~$3/1M input tokens
+                        vision_cost = (vision_tokens / 1_000_000) * 3.0
+                        formatting_cost = (formatting_tokens / 1_000_000) * 3.0
+                        estimated_cost = vision_cost + formatting_cost
+
                         return ProcessingResult(
                             content=result["markdown_content"],  # Return just the markdown content
                             output_file=str(output_file),
@@ -215,9 +320,35 @@ class OptimizedDocumentProcessor:
                             vision_calls_used=result["metadata"]["vision_calls_used"],
                             processing_time=processing_time,
                             pages_processed=result["metadata"]["pages_processed"],
-                            evaluation_report=evaluation_report  # Separate evaluation report
+                            evaluation_report=evaluation_report,  # Separate evaluation report
+                            total_tokens=total_tokens,
+                            vision_tokens=vision_tokens,
+                            formatting_tokens=formatting_tokens,
+                            evaluation_tokens=0,  # TODO: track separately
+                            estimated_cost=estimated_cost,
+                            agent_responses=result.get("agent_responses", []),  # Agent responses for cleaning report
+                            # Component timing breakdown
+                            vision_ocr_time=result["metadata"].get("vision_ocr_time", 0.0),
+                            quality_report_time=result["metadata"].get("quality_report_time", 0.0),
+                            summary_time=0.0  # Summary is generated in UI layer, will be updated there
                         )
                     else:
+                        # Check if there's a specific error message (e.g., image-only PDF detected)
+                        if result.get("metadata", {}).get("error"):
+                            error_msg = result["metadata"]["error"]
+                            self.logger.log_error(f"❌ Systematic processing error: {error_msg}")
+                            processing_time = time.time() - start_time
+                            return ProcessingResult(
+                                content=f"# Processing Error\n\n{error_msg}",
+                                output_file=None,
+                                status=f"Error: {error_msg}",
+                                logs=self.logger.get_logs(),
+                                success=False,
+                                processing_time=processing_time,
+                                pages_processed=0,
+                                evaluation_report=None
+                            )
+
                         # Systematic processing failed, fall back to traditional method
                         self.logger.log_warning("Systematic processing failed, falling back to traditional method")
                         self.use_systematic_processing = False  # Disable for this run
@@ -342,10 +473,7 @@ class OptimizedDocumentProcessor:
             
             processing_time = time.time() - start_time
             self.logger.log_success(f"✅ Completed in {processing_time:.1f}s")
-            
-            # Track successful completion
-            # Analytics removed(success=True)
-            
+                        
             return ProcessingResult(
                 content=final_content,
                 output_file=output_file,
@@ -361,9 +489,6 @@ class OptimizedDocumentProcessor:
         except Exception as e:
             processing_time = time.time() - start_time
             error_msg = f"Processing failed: {str(e)}"
-            
-            # Track error
-            # Analytics removed - can be added back later if needed
             
             self.logger.log_error(error_msg)
             return ProcessingResult(
@@ -412,8 +537,34 @@ class OptimizedDocumentProcessor:
         """Extract a clean document title from filename."""
         # Use the centralized utility, but add timestamp removal first
         title = Path(filename).stem
-        # Remove timestamp patterns (YYYYMMDD_HHMMSS) from the end
-        title = re.sub(r'_\d{8}_\d{6}$', '', title)  # Remove _20250831_123456
-        title = re.sub(r'_\d{14}$', '', title)       # Remove _20250831123456
-        # Now use the utility for final formatting
         return extract_document_title(title)
+
+    def cleanup(self):
+        """
+        Cleanup processor resources.
+
+        Call this when the processor is no longer needed to immediately
+        release resources and reduce latency. This ensures proper cleanup
+        of the OCR engine and all its agents (including thread pools).
+        """
+        self.logger.log_step("🧹 Cleaning up document processor resources")
+
+        # Cleanup OCR engine (which will cleanup all agents)
+        if hasattr(self, 'ocr_engine') and self.ocr_engine:
+            if hasattr(self.ocr_engine, 'cleanup'):
+                self.ocr_engine.cleanup()
+
+        self.logger.log_step("✅ Document processor cleanup complete")
+
+    def __del__(self):
+        """
+        Ensure cleanup on deletion (defensive programming).
+
+        This provides a safety net in case cleanup() wasn't called explicitly.
+        """
+        if hasattr(self, 'ocr_engine') and self.ocr_engine:
+            if hasattr(self.ocr_engine, 'cleanup'):
+                try:
+                    self.ocr_engine.cleanup()
+                except Exception:
+                    pass  # Silently fail in __del__

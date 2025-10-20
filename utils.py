@@ -10,46 +10,50 @@ from PIL import Image
 import io
 
 
-def validate_page_ranges(page_ranges_str: str, total_pages: int) -> List[int]:
+def validate_page_ranges(page_ranges_str: str, total_pages: int) -> Tuple[bool, str, List[int]]:
     """
     Parse and validate page range string.
-    
+
     Args:
         page_ranges_str: String like "1-5, 10, 15-20"
         total_pages: Total number of pages in document
-        
+
     Returns:
-        List of valid page numbers (0-indexed)
+        Tuple of (is_valid, error_message, page_list)
+        - is_valid: True if parsing succeeded
+        - error_message: Error description if invalid, empty string otherwise
+        - page_list: List of valid page numbers (0-indexed)
     """
     if not page_ranges_str or not page_ranges_str.strip():
-        return list(range(total_pages))
-    
+        return (True, "", list(range(total_pages)))
+
     pages = set()
     parts = page_ranges_str.split(',')
-    
-    for part in parts:
-        part = part.strip()
-        if '-' in part:
-            try:
+
+    try:
+        for part in parts:
+            part = part.strip()
+            if '-' in part:
                 start, end = part.split('-')
                 start = int(start.strip())
                 end = int(end.strip())
-                
+
+                if start < 1 or end > total_pages or start > end:
+                    return (False, f"Invalid range {start}-{end}. Pages must be between 1 and {total_pages}", [])
+
                 # Convert to 0-indexed and validate
                 for page in range(start, end + 1):
-                    if 1 <= page <= total_pages:
-                        pages.add(page - 1)  # Convert to 0-indexed
-            except ValueError:
-                continue
-        else:
-            try:
-                page = int(part.strip())
-                if 1 <= page <= total_pages:
                     pages.add(page - 1)  # Convert to 0-indexed
-            except ValueError:
-                continue
-    
-    return sorted(list(pages)) if pages else list(range(total_pages))
+            else:
+                page = int(part.strip())
+                if page < 1 or page > total_pages:
+                    return (False, f"Page {page} is out of range. Document has {total_pages} pages", [])
+                pages.add(page - 1)  # Convert to 0-indexed
+    except ValueError as e:
+        return (False, f"Invalid page range format: {page_ranges_str}", [])
+
+    page_list = sorted(list(pages)) if pages else list(range(total_pages))
+    return (True, "", page_list)
 
 
 def extract_document_title(filename: str) -> str:
@@ -71,24 +75,28 @@ def extract_document_title(filename: str) -> str:
     return title
 
 
-def image_to_base64(image: Union[Image.Image, bytes], format: str = "PNG") -> str:
+def image_to_base64(image: Union[Image.Image, bytes], format: str = "PNG", quality: int = 95) -> str:
     """
     Convert PIL Image or bytes to base64 string.
-    
+
     Args:
         image: PIL Image object or image bytes
         format: Image format (PNG, JPEG, etc.)
-        
+        quality: JPEG compression quality (1-100, only used for JPEG format)
+
     Returns:
         Base64 encoded string
     """
     if isinstance(image, Image.Image):
         buffer = io.BytesIO()
-        image.save(buffer, format=format)
+        if format.upper() in ['JPEG', 'JPG']:
+            image.save(buffer, format='JPEG', quality=quality, optimize=True)
+        else:
+            image.save(buffer, format=format)
         image_bytes = buffer.getvalue()
     else:
         image_bytes = image
-    
+
     return base64.b64encode(image_bytes).decode('utf-8')
 
 
