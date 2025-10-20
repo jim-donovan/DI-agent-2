@@ -51,9 +51,11 @@ Thumbs.db
 # Output files
 output/
 
-# Markdown files (keep only README for HuggingFace)
+# Markdown files (keep only specific ones)
 *.md
 !README.md
+!CLAUDE.md
+!*.skills.md
 
 # Temporary files
 tmp/
@@ -104,6 +106,11 @@ convert_to_pdf.py
 api/README.md
 prompts/README.md
 evaluation/README.md
+
+# Instructional/guide markdown files (created by assistant)
+SECURITY_AUDIT_REPORT.md
+HUGGINGFACE_SETUP.md
+PUSH_TO_HUGGINGFACE_GUIDE.md
 
 # API directory (if not needed on HuggingFace - uncomment to ignore)
 # api/
