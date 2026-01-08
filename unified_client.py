@@ -3,8 +3,7 @@ Unified AI Client System
 Provides seamless interoperability between OpenAI and Anthropic models
 """
 
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
+from typing import Dict, Any, List
 from abc import ABC, abstractmethod
 
 try:
@@ -38,7 +37,7 @@ class BaseAIClient(ABC):
     @abstractmethod
     def chat_completion(self, messages: List[Dict[str, Any]], 
                        model: str, temperature: float = 0.1, 
-                       max_tokens: int = 4096) -> UnifiedResponse:
+                       max_tokens: int = 64000) -> UnifiedResponse:
         """Make a chat completion request."""
         pass
     
@@ -72,7 +71,7 @@ class OpenAIClient(BaseAIClient):
     
     def chat_completion(self, messages: List[Dict[str, Any]], 
                        model: str, temperature: float = 0.1, 
-                       max_tokens: int = 4096) -> UnifiedResponse:
+                       max_tokens: int = 64000) -> UnifiedResponse:
         """Make OpenAI chat completion request."""
         try:
             response = self.client.chat.completions.create(
@@ -121,7 +120,7 @@ class AnthropicClient(BaseAIClient):
     
     def chat_completion(self, messages: List[Dict[str, Any]], 
                        model: str, temperature: float = 0.1, 
-                       max_tokens: int = 4096) -> UnifiedResponse:
+                       max_tokens: int = 64000) -> UnifiedResponse:
         """Make Anthropic chat completion request."""
         try:
             # Convert OpenAI format to Anthropic format
@@ -236,7 +235,7 @@ class UnifiedAIClient:
     
     def chat_completion(self, messages: List[Dict[str, Any]], 
                        model: str, temperature: float = 0.1, 
-                       max_tokens: int = 4096, provider: str = None) -> UnifiedResponse:
+                       max_tokens: int = 64000, provider: str = None) -> UnifiedResponse:
         """Make a chat completion request using the appropriate provider."""
         if provider is None:
             raise ValueError(f"Provider must be specified for model: {model}")

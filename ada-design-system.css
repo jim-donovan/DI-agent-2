@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+@import "tailwindcss";
+
+.debug-red {
+    border: 1px solid red;
+}
+
+:root {
+    /* Neutrals */
+    --ada-neutral-25: #FAFAFA;
+    --ada-neutral-50: #F5F5F5;
+    --ada-neutral-100: #E5E5E5;
+    --ada-neutral-200: #D4D4D4;
+    --ada-neutral-300: #A3A3A3;
+    --ada-neutral-400: #737373;
+    --ada-neutral-500: #525252;
+    --ada-neutral-600: #404040;
+    --ada-neutral-700: #262626;
+    --ada-neutral-800: #171717;
+    --ada-neutral-900: #0A0A0A;
+
+    /* Gradients */
+    --ada-linear1: #ce67a0;
+    --ada-linear2: #dd7a62;
+    --ada-linear3: #c1c770;
+
+    /* Ada Core */
+    --ada-foreground: var(--ada-neutral-700);
+    --ada-foreground-muted: var(--ada-neutral-400);
+    --ada-background: var(--ada-neutral-25);
+    --ada-primary: #31214C;
+    --ada-primary-foreground: var(--ada-neutral-50);
+    --ada-primary--hover: #523780;
+    --ada-border: var(--ada-neutral-100);
+    --ada-card: var(--ada-neutral-50);
+    --ada-error: #FF453A;
+    --ada-error-background: #FFF0F0;
+    --ada-success: #17702E;
+    --ada-success-background: #ECFBF0;
+    --ada-warning: #BE8200;
+    --ada-warning-background: #FFFAE7;
+    --ada-info: #1626BA;
+    --ada-info-background: #EEF3FF;
+    --ada-new: #000;
+    --ada-new-background: #D3C8FA;
+    --ada-font: 'Montserrat', sans-serif;
+    --ada-font-alternates: 'Montserrat Alternates', sans-serif;
+
+    /* Ada Components */
+    /* ------------- */
+    /* TextField */
+    --ada-input-foreground: var(--ada-neutral-700);
+    --ada-input-label: var(--ada-neutral-800);
+    --ada-input-placeholder: var(--ada-neutral-400);
+    --ada-input-background: var(--ada-neutral-50);
+    --ada-input-helper-text: var(--ada-neutral-700);
+    --ada-input-background--hover: var(--ada-neutral-100);
+    /* Chip */
+    --ada-chip-background: var(--ada-neutral-25);
+    --ada-chip-foreground: var(--ada-neutral-700);
+    --ada-chip-background--hover: var(--ada-neutral-100);
+    --ada-chip-border: var(--ada-neutral-700);
+    /* Menu */
+    --ada-menu-background: var(--ada-neutral-25);
+    --ada-menu-foreground: var(--ada-neutral-700);
+    --ada-menu-background--hover: var(--ada-neutral-100);
+    --ada-menu-background--active: var(--ada-neutral-100);
+}
+
+.dark {
+    --ada-primary: #A46FFF;
+    --ada-primary--hover: #734EB2;
+    --ada-input-foreground: var(--ada-neutral-50);
+    --ada-foreground: var(--ada-neutral-50);
+    --ada-foreground-muted: #E5E5E5;
+    --ada-background: var(--ada-neutral-900);
+    --ada-card: var(--ada-neutral-800);
+    --ada-border: var(--ada-neutral-400);
+    /* Ada Components */
+    /* ------------- */
+    /* TextField */
+    --ada-input-label: var(--ada-foreground);
+    --ada-input-placeholder: var(--ada-neutral-100);
+    --ada-input-background: var(--ada-neutral-800);
+    --ada-input-helper-text: var(--ada-neutral-50);
+    --ada-input-background--hover: var(--ada-neutral-700);
+    /* Chip */
+    --ada-chip-background: var(--ada-neutral-600);
+    --ada-chip-foreground: var(--ada-neutral-50);
+    --ada-chip-background--hover: var(--ada-neutral-500);
+    --ada-chip-border: var(--ada-neutral-700);
+    /* Menu */
+    --ada-menu-background: var(--ada-neutral-700);
+    --ada-menu-foreground: var(--ada-neutral-100);
+    --ada-menu-background--hover: var(--ada-neutral-900);
+    --ada-menu-background--active: var(--ada-neutral-900);
+}
+
+html {
+    font-family: var(--ada-font), sans-serif;
+    color: var(--ada-foreground);
+}

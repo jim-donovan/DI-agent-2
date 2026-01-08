@@ -33,7 +33,7 @@ class Config:
     vision_model: str = "claude-sonnet-4-5-20250929"                          # Vision OCR model (image text extraction)  
     vision_provider: str = "anthropic"                       # Provider for vision model
     vision_temperature: float = 0.0                       # Temperature for vision OCR (low for accurate extraction)
-    vision_max_tokens: int = 4096                         # Max tokens for vision OCR (shorter responses needed)
+    vision_max_tokens: int = 64000                         # Max tokens for vision OCR (shorter responses needed)
 
     # Evaluation Agent Settings  
     evaluation_model: str = "gpt-4o-mini"                 # Evaluation model (faster/cheaper for quality checks)

@@ -80,6 +80,32 @@ Valid Markdown (FLATTENED format - THIS IS CORRECT):
    - Step 4: Search for distinctive number patterns ($15/$45, etc.)
    - If found in ANY step → **NOT MISSING**
 
+## 🔎 CRITICAL: SEARCH THE ENTIRE MARKDOWN, NOT JUST MATCHING SECTIONS
+
+**COMMON FALSE POSITIVE TRAP - AVOID THIS:**
+When checking if "Limitations" text from a PDF table cell is in the markdown, DO NOT:
+- ❌ Only look at the same row/section in the markdown
+- ❌ Expect text to appear in the same structural position
+- ❌ Assume content is missing because it's not adjacent to the same service name
+
+Instead:
+- ✅ Search the ENTIRE markdown document for distinctive phrases
+- ✅ Use keyword search for terms like "30-day supply", "preauthorization", "60 visits", "31 days"
+- ✅ Content moved to a different line or section is NOT missing
+
+**Example of CORRECT verification for table limitation text:**
+PDF has: "Generic drugs" row with limitation "When the retail store offers a lower price for generic, pay only the lower price. Covers up to a 30-day supply"
+
+To verify:
+1. Search markdown for "30-day supply" → Found on line 62? → **NOT MISSING**
+2. Search for "retail store offers a lower price" → Found? → **NOT MISSING**
+3. Only if you cannot find these phrases ANYWHERE in the entire document → report as missing
+
+**DO NOT claim content is missing just because it appears:**
+- On a different line than expected
+- Near a different service name
+- In a different format (flattened vs table)
+
 ## Critical Instructions - READ CAREFULLY
 ⚠️ **BEFORE reporting an item as missing or added, you MUST:**
 1. **Search the ENTIRE markdown document** - use Ctrl+F / Cmd+F mentally - scan EVERYWHERE
@@ -252,6 +278,32 @@ Valid Markdown (FLATTENED format - THIS IS CORRECT):
    - Step 3: Search for semantic meaning
    - Step 4: Search for distinctive number patterns ($15/$45, etc.)
    - If found in ANY step → **NOT MISSING**
+
+## 🔎 CRITICAL: SEARCH THE ENTIRE MARKDOWN, NOT JUST MATCHING SECTIONS
+
+**COMMON FALSE POSITIVE TRAP - AVOID THIS:**
+When checking if "Limitations" text from a PDF table cell is in the markdown, DO NOT:
+- ❌ Only look at the same row/section in the markdown
+- ❌ Expect text to appear in the same structural position
+- ❌ Assume content is missing because it's not adjacent to the same service name
+
+Instead:
+- ✅ Search the ENTIRE markdown document for distinctive phrases
+- ✅ Use keyword search for terms like "30-day supply", "preauthorization", "60 visits", "31 days"
+- ✅ Content moved to a different line or section is NOT missing
+
+**Example of CORRECT verification for table limitation text:**
+PDF has: "Generic drugs" row with limitation "When the retail store offers a lower price for generic, pay only the lower price. Covers up to a 30-day supply"
+
+To verify:
+1. Search markdown for "30-day supply" → Found on line 62? → **NOT MISSING**
+2. Search for "retail store offers a lower price" → Found? → **NOT MISSING**
+3. Only if you cannot find these phrases ANYWHERE in the entire document → report as missing
+
+**DO NOT claim content is missing just because it appears:**
+- On a different line than expected
+- Near a different service name
+- In a different format (flattened vs table)
 
 ## Critical Instructions - READ CAREFULLY
 ⚠️ **BEFORE reporting an item as missing or added, you MUST:**

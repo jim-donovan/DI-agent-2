@@ -168,6 +168,7 @@ class OCRInterface:
         self.excel_structure_config = None
         # Vision recommendations storage
         self.vision_recommendations = None
+        self.analysis_vision_calls = 0  # Track vision calls made during "Analyze Document"
         self.current_uploaded_file = None
 
         # Create local downloads directory for Gradio (if enabled)
@@ -206,114 +207,187 @@ class OCRInterface:
         return f"""
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; padding: 40px;">
             <style>
-                @keyframes orbit {{
-                    0% {{ transform: rotate(0deg) translateX(80px) rotate(0deg); }}
-                    100% {{ transform: rotate(360deg) translateX(80px) rotate(-360deg); }}
+                @keyframes lcars-spin {{
+                    0% {{ transform: rotate(0deg); }}
+                    100% {{ transform: rotate(360deg); }}
                 }}
-                @keyframes pulse {{
-                    0%, 100% {{
-                        transform: scale(1);
-                        opacity: 0.8;
-                    }}
-                    50% {{
-                        transform: scale(1.1);
-                        opacity: 1;
-                    }}
+                @keyframes lcars-spin-reverse {{
+                    0% {{ transform: rotate(360deg); }}
+                    100% {{ transform: rotate(0deg); }}
                 }}
-                @keyframes glow {{
-                    0%, 100% {{
-                        box-shadow: 0 0 20px rgba(223, 87, 159, 0.6),
-                                    0 0 40px rgba(236, 110, 83, 0.4),
-                                    0 0 60px rgba(191, 200, 90, 0.2);
-                    }}
-                    50% {{
-                        box-shadow: 0 0 30px rgba(223, 87, 159, 0.8),
-                                    0 0 60px rgba(236, 110, 83, 0.6),
-                                    0 0 90px rgba(191, 200, 90, 0.4);
-                    }}
+                @keyframes warp-pulse {{
+                    0%, 100% {{ transform: scale(1); opacity: 0.8; }}
+                    50% {{ transform: scale(1.15); opacity: 1; }}
+                }}
+                @keyframes scan-line {{
+                    0% {{ top: 0%; opacity: 1; }}
+                    100% {{ top: 100%; opacity: 0.3; }}
+                }}
+                @keyframes data-flow {{
+                    0% {{ background-position: 0% 50%; }}
+                    100% {{ background-position: 200% 50%; }}
+                }}
+                @keyframes segment-pulse {{
+                    0%, 100% {{ opacity: 0.4; }}
+                    50% {{ opacity: 1; }}
                 }}
                 @keyframes messageRotate {{
                     0%, {message_show_percent:.1f}% {{ opacity: 1; }}
                     {message_hide_percent:.1f}%, 100% {{ opacity: 0; }}
                 }}
-                .processing-container {{
+                .lcars-container {{
                     position: relative;
-                    width: 200px;
-                    height: 200px;
+                    width: 140px;
+                    height: 140px;
                     margin: 20px auto;
                 }}
-                .central-orb {{
+                /* Outer ring - segmented LCARS style */
+                .lcars-ring-outer {{
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 130px;
+                    height: 130px;
+                    margin: -65px 0 0 -65px;
+                    border-radius: 50%;
+                    border: 4px solid transparent;
+                    border-top-color: #FF9900;
+                    border-right-color: #CC6699;
+                    border-bottom-color: transparent;
+                    border-left-color: transparent;
+                    animation: lcars-spin 5s linear infinite;
+                    box-shadow: 0 0 15px rgba(255, 153, 0, 0.3);
+                }}
+                /* Middle ring */
+                .lcars-ring-middle {{
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 100px;
+                    height: 100px;
+                    margin: -50px 0 0 -50px;
+                    border-radius: 50%;
+                    border: 3px solid transparent;
+                    border-top-color: #9999FF;
+                    border-right-color: transparent;
+                    border-bottom-color: #9999FF;
+                    border-left-color: transparent;
+                    animation: lcars-spin-reverse 3.5s linear infinite;
+                    box-shadow: 0 0 10px rgba(153, 153, 255, 0.3);
+                }}
+                /* Inner ring */
+                .lcars-ring-inner {{
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 70px;
+                    height: 70px;
+                    margin: -35px 0 0 -35px;
+                    border-radius: 50%;
+                    border: 2px dashed rgba(153, 204, 255, 0.5);
+                    animation: lcars-spin 2.5s linear infinite;
+                }}
+                /* Warp core center */
+                .warp-core {{
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 40px;
+                    height: 40px;
+                    margin: -20px 0 0 -20px;
+                    background: radial-gradient(circle,
+                        #66CCFF 0%,
+                        #3399FF 40%,
+                        #0066CC 70%,
+                        #003366 100%);
+                    border-radius: 50%;
+                    box-shadow:
+                        0 0 20px rgba(102, 204, 255, 0.8),
+                        0 0 40px rgba(51, 153, 255, 0.4),
+                        inset 0 0 10px rgba(255, 255, 255, 0.5);
+                    animation: warp-pulse 2.5s ease-in-out infinite;
+                }}
+                /* Scanning line */
+                .scan-line {{
                     position: absolute;
                     top: 50%;
                     left: 50%;
                     width: 120px;
-                    height: 120px;
-                    margin: -60px 0 0 -60px;
-                    background: linear-gradient(135deg, #DF579F 0%, #EC6E53 50%, #BFC85A 100%);
-                    border-radius: 50%;
-                    animation: pulse 4.3s ease-in-out infinite, glow 4.3s ease-in-out infinite;
-                    box-shadow: 0 0 40px rgba(236, 110, 83, 0.6);
+                    height: 2px;
+                    margin-left: -60px;
+                    background: linear-gradient(90deg,
+                        transparent 0%,
+                        rgba(102, 204, 255, 0.8) 50%,
+                        transparent 100%);
+                    animation: lcars-spin 3.5s linear infinite;
+                    transform-origin: center center;
                 }}
-                .orbit-ring {{
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    width: 160px;
-                    height: 160px;
-                    margin: -80px 0 0 -80px;
-                    border: 2px solid rgba(236, 110, 83, 0.2);
-                    border-radius: 50%;
+                /* LCARS data bar */
+                .lcars-data-bar {{
+                    display: flex;
+                    gap: 3px;
+                    margin-top: 24px;
+                    padding: 4px 8px;
+                    background: rgba(0, 0, 0, 0.3);
+                    border-radius: 12px;
+                    border: 1px solid rgba(153, 153, 255, 0.3);
                 }}
-                .orbiting-dot {{
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    width: 20px;
-                    height: 20px;
-                    margin: -10px 0 0 -10px;
-                    background: linear-gradient(135deg, #DF579F, #EC6E53);
-                    border-radius: 50%;
-                    box-shadow: 0 0 20px rgba(223, 87, 159, 0.8);
+                .lcars-segment {{
+                    width: 8px;
+                    height: 16px;
+                    border-radius: 2px;
                 }}
-                .orbiting-dot-1 {{
-                    animation: orbit 4.3s linear infinite;
-                }}
-                .orbiting-dot-2 {{
-                    animation: orbit 4.3s linear infinite;
-                    animation-delay: -1.43s;
-                }}
-                .orbiting-dot-3 {{
-                    animation: orbit 4.3s linear infinite;
-                    animation-delay: -2.87s;
-                }}
+                .lcars-segment:nth-child(1) {{ background: #FF9900; animation: segment-pulse 2s ease-in-out infinite; animation-delay: 0s; }}
+                .lcars-segment:nth-child(2) {{ background: #FF9900; animation: segment-pulse 2s ease-in-out infinite; animation-delay: 0.15s; }}
+                .lcars-segment:nth-child(3) {{ background: #CC6699; animation: segment-pulse 2s ease-in-out infinite; animation-delay: 0.3s; }}
+                .lcars-segment:nth-child(4) {{ background: #CC6699; animation: segment-pulse 2s ease-in-out infinite; animation-delay: 0.45s; }}
+                .lcars-segment:nth-child(5) {{ background: #9999FF; animation: segment-pulse 2s ease-in-out infinite; animation-delay: 0.6s; }}
+                .lcars-segment:nth-child(6) {{ background: #9999FF; animation: segment-pulse 2s ease-in-out infinite; animation-delay: 0.75s; }}
+                .lcars-segment:nth-child(7) {{ background: #66CCFF; animation: segment-pulse 2s ease-in-out infinite; animation-delay: 0.9s; }}
+                .lcars-segment:nth-child(8) {{ background: #66CCFF; animation: segment-pulse 2s ease-in-out infinite; animation-delay: 1.05s; }}
+                .lcars-segment:nth-child(9) {{ background: #99FF99; animation: segment-pulse 2s ease-in-out infinite; animation-delay: 1.2s; }}
+                .lcars-segment:nth-child(10) {{ background: #99FF99; animation: segment-pulse 2s ease-in-out infinite; animation-delay: 1.35s; }}
                 .cycling-messages {{
                     position: relative;
-                    min-height: 24px;
+                    height: 28px;
                     width: 100%;
                     max-width: 600px;
+                    margin-top: 12px;
                 }}
                 .cycling-messages span {{
                     position: absolute;
                     top: 0;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    width: 600px;
+                    left: 0;
+                    right: 0;
                     text-align: center;
                     opacity: 0;
                     white-space: nowrap;
+                    font-size: 14px;
                     animation: messageRotate {total_duration}s infinite;
                 }}
                 {"".join(f".cycling-messages span:nth-child({i+1}) {{ animation-delay: {total_duration * i / len(messages_sample):.1f}s; }}" for i in range(len(messages_sample)))}
             </style>
-            <div class="processing-container">
-                <div class="orbit-ring"></div>
-                <div class="central-orb"></div>
-                <div class="orbiting-dot orbiting-dot-1"></div>
-                <div class="orbiting-dot orbiting-dot-2"></div>
-                <div class="orbiting-dot orbiting-dot-3"></div>
+            <div class="lcars-container">
+                <div class="lcars-ring-outer"></div>
+                <div class="lcars-ring-middle"></div>
+                <div class="lcars-ring-inner"></div>
+                <div class="warp-core"></div>
+                <div class="scan-line"></div>
             </div>
-            <h3 style="background: linear-gradient(135deg, #DF579F, #EC6E53, #BFC85A); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-top: 30px; font-family: 'Rajdhani', sans-serif; font-weight: 600; text-align: center; letter-spacing: 0.5px;">Processing your document...</h3>
-            <div class="cycling-messages" style="color: #EC6E53; font-family: 'Rajdhani', sans-serif; font-weight: 500; text-align: center; letter-spacing: 0.3px;">
+            <div class="lcars-data-bar">
+                <div class="lcars-segment"></div>
+                <div class="lcars-segment"></div>
+                <div class="lcars-segment"></div>
+                <div class="lcars-segment"></div>
+                <div class="lcars-segment"></div>
+                <div class="lcars-segment"></div>
+                <div class="lcars-segment"></div>
+                <div class="lcars-segment"></div>
+                <div class="lcars-segment"></div>
+                <div class="lcars-segment"></div>
+            </div>
+            <h3 style="color: #99CCFF; margin-top: 20px; font-family: 'Montserrat', sans-serif; font-weight: 600; text-align: center; letter-spacing: 2px; font-size: 14px; text-transform: uppercase;">Processing Document...</h3>
+            <div class="cycling-messages" style="color: #CC9966; font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 1px;">
                 {"".join(f'<span>{message}</span>' for message in messages_sample)}
             </div>
         </div>
@@ -407,7 +481,7 @@ class OCRInterface:
         evaluation_stats_html = f"""
         <div class='status-box status-success'>
             <h4>📊 Comparison Stats</h4>
-            <p><strong>Agreement:</strong> {self._extract_agreement(evaluation_content)}</p>
+            <p><strong>Average:</strong> {self._extract_average(evaluation_content)}</p>
             <p><strong>Primary:</strong> {anthropic_rec} (Anthropic)</p>
             <p><strong>Method:</strong> Dual Evaluation</p>
         </div>
@@ -556,164 +630,173 @@ class OCRInterface:
         
         return "UNKNOWN"
     
-    def _extract_agreement(self, content: str) -> str:
-        """Extract agreement level from comparison report."""
+    def _extract_average(self, content: str) -> str:
+        """Extract average score from comparison report."""
         lines = content.split('\n')
         for line in lines:
-            if "Agreement Level:" in line:
+            if "Average:" in line:
                 try:
-                    agreement = line.split("Agreement Level:")[1].strip()
-                    return agreement
+                    average = line.split("Average:")[1].strip()
+                    return average
                 except (IndexError, AttributeError):
                     pass
         return "Unknown"
 
     def get_css(self) -> str:
-        """Get CSS styling for the interface."""
+        """Get CSS styling for the interface using ADA Design System."""
         return """
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Literata:wght@400;500;600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap');
-        
-        /* Main Container with Modern Gradient Background */
-        .gradio-container { 
-            max-width: 100% !important; 
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
+
+        /* ===== ADA Design System CSS Variables ===== */
+        :root {
+            /* Neutrals */
+            --ada-neutral-25: #FAFAFA;
+            --ada-neutral-50: #F5F5F5;
+            --ada-neutral-100: #E5E5E5;
+            --ada-neutral-200: #D4D4D4;
+            --ada-neutral-300: #A3A3A3;
+            --ada-neutral-400: #737373;
+            --ada-neutral-500: #525252;
+            --ada-neutral-600: #404040;
+            --ada-neutral-700: #262626;
+            --ada-neutral-800: #171717;
+            --ada-neutral-900: #0A0A0A;
+
+            /* Gradients */
+            --ada-linear1: #ce67a0;
+            --ada-linear2: #dd7a62;
+            --ada-linear3: #c1c770;
+
+            /* Ada Core */
+            --ada-foreground: var(--ada-neutral-700);
+            --ada-foreground-muted: var(--ada-neutral-400);
+            --ada-background: var(--ada-neutral-25);
+            --ada-primary: #31214C;
+            --ada-primary-foreground: var(--ada-neutral-50);
+            --ada-primary--hover: #523780;
+            --ada-border: var(--ada-neutral-100);
+            --ada-card: var(--ada-neutral-50);
+            --ada-error: #FF453A;
+            --ada-error-background: #FFF0F0;
+            --ada-success: #17702E;
+            --ada-success-background: #ECFBF0;
+            --ada-warning: #BE8200;
+            --ada-warning-background: #FFFAE7;
+            --ada-info: #1626BA;
+            --ada-info-background: #EEF3FF;
+            --ada-font: 'Montserrat', sans-serif;
+
+            /* Component Variables */
+            --ada-input-foreground: var(--ada-neutral-700);
+            --ada-input-label: var(--ada-neutral-800);
+            --ada-input-placeholder: var(--ada-neutral-400);
+            --ada-input-background: var(--ada-neutral-50);
+            --ada-input-background--hover: var(--ada-neutral-100);
+        }
+
+        /* Dark Mode Variables - Gradio adds .dark class when in dark mode */
+        .dark {
+            --ada-primary: #A46FFF;
+            --ada-primary--hover: #734EB2;
+            --ada-input-foreground: var(--ada-neutral-50);
+            --ada-foreground: var(--ada-neutral-50);
+            --ada-foreground-muted: #E5E5E5;
+            --ada-background: var(--ada-neutral-900);
+            --ada-card: var(--ada-neutral-800);
+            --ada-border: var(--ada-neutral-600);
+            --ada-input-label: var(--ada-neutral-50);
+            --ada-input-placeholder: var(--ada-neutral-300);
+            --ada-input-background: var(--ada-neutral-800);
+            --ada-input-background--hover: var(--ada-neutral-700);
+        }
+
+        /* ===== Base Styles ===== */
+        .gradio-container {
+            max-width: 100% !important;
             margin: 0 auto !important;
-            font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-            background: linear-gradient(135deg, #1a1f2e 0%, #2d1b69 25%, #1a1f2e 50%, #402d8b 75%, #1a1f2e 100%) !important;
+            font-family: var(--ada-font), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            background: var(--ada-background) !important;
+            color: var(--ada-foreground) !important;
             min-height: 100vh !important;
             position: relative !important;
-            overflow: hidden !important;
         }
-        
-        /* Animated Gradient Orbs for Glassmorphism Background */
-        .gradio-container::before {
-            content: '';
-            position: absolute;
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, rgba(147, 51, 234, 0.4) 0%, transparent 70%);
-            top: -200px;
-            right: -200px;
-            animation: float 20s ease-in-out infinite;
+
+
+        /* ===== Header ===== */
+        .main-header {
+            background: var(--ada-card) !important;
+            padding: 2rem 2rem;
+            border-radius: 16px;
+            color: var(--ada-foreground);
+            text-align: center;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--ada-border);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
         }
-        
-        .gradio-container::after {
-            content: '';
-            position: absolute;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, rgba(168, 85, 247, 0.3) 0%, transparent 70%);
-            bottom: -150px;
-            left: -150px;
-            animation: float 15s ease-in-out infinite reverse;
-        }
-        
-        @keyframes float {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            33% { transform: translate(30px, -30px) scale(1.05); }
-            66% { transform: translate(-20px, 20px) scale(0.95); }
-        }
-        
-        /* Glassmorphic Header */
-        .main-header { 
-            background: rgba(255, 255, 255, 0.05) !important;
-            backdrop-filter: blur(20px) !important;
-            -webkit-backdrop-filter: blur(20px) !important;
-            padding: 2.5rem 2rem; 
-            border-radius: 24px; 
-            color: #F1F5F9; 
-            text-align: center; 
-            margin-bottom: 2rem;
-            box-shadow: 
-                0 8px 32px rgba(6, 182, 212, 0.15),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            position: relative;
-            z-index: 10;
-        }
-        
+
         .main-header h1 {
-            margin: 0 0 1rem 0;
-            font-size: 2.5rem;
-            font-weight: 500;
-            font-family: 'Literata', serif !important;
-            background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 50%, #67e8f9 100%);
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 2px 4px rgba(6, 182, 212, 0.3));
+            margin: 0 0 0.75rem 0;
+            font-size: 2.25rem;
+            font-weight: 700;
+            font-family: var(--ada-font) !important;
+            color: var(--ada-primary);
         }
-        
-        /* Glassmorphic Left Panel */
+
+        .main-header p {
+            color: var(--ada-foreground-muted) !important;
+        }
+
+        /* ===== Left Panel ===== */
         .left-panel {
-            background: rgba(255, 255, 255, 0.03) !important;
-            backdrop-filter: blur(16px) saturate(180%) !important;
-            -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-            border-radius: 20px !important;
+            background: var(--ada-card) !important;
+            border-radius: 16px !important;
             padding: 1.5rem !important;
-            border: 1px solid rgba(255, 255, 255, 0.08) !important;
-            box-shadow: 
-                0 8px 32px rgba(0, 0, 0, 0.2),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
-            position: relative;
-            z-index: 10;
+            border: 1px solid var(--ada-border) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
             width: 100% !important;
         }
-        
+
         .section-header {
-            font-family: 'Literata', serif !important;
-            font-size: 1.2rem;
+            font-family: var(--ada-font) !important;
+            font-size: 1.1rem;
             font-weight: 600;
-            color: #f0f9ff;
+            color: var(--ada-neutral-800);
             margin: 1.5rem 0 1rem 0;
             padding-bottom: 0.5rem;
-            border-bottom: 2px solid rgba(6, 182, 212, 0.3);
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            border-bottom: 2px solid var(--ada-border);
         }
-        
-        /* Glassmorphic Status Box */
-        .status-box { 
-            background: rgba(255, 255, 255, 0.04) !important;
-            backdrop-filter: blur(12px) !important;
-            -webkit-backdrop-filter: blur(12px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1); 
-            border-radius: 16px; 
-            padding: 1rem 1.25rem; 
+        .dark .section-header {
+            color: var(--ada-neutral-100);
+        }
+
+        /* ===== Status Box ===== */
+        .status-box {
+            background: var(--ada-card) !important;
+            border: 1px solid var(--ada-border);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
             margin: 1rem 0;
             font-weight: 500;
-            color: #f0f9ff;
-            box-shadow: 
-                0 4px 16px rgba(0, 0, 0, 0.1),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            color: var(--ada-foreground);
         }
-        
-        .status-success { 
-            background: rgba(16, 185, 129, 0.1) !important;
-            backdrop-filter: blur(12px) !important;
-            color: #6ee7b7; 
-            border-color: rgba(16, 185, 129, 0.3);
-            box-shadow: 
-                0 4px 16px rgba(16, 185, 129, 0.15),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+        .status-success {
+            background: var(--ada-success-background) !important;
+            color: var(--ada-success);
+            border-color: var(--ada-success);
         }
-        .status-error { 
-            background: rgba(239, 68, 68, 0.1) !important;
-            backdrop-filter: blur(12px) !important;
-            color: #fca5a5; 
-            border-color: rgba(239, 68, 68, 0.3);
-            box-shadow: 
-                0 4px 16px rgba(239, 68, 68, 0.15),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        .status-error {
+            background: var(--ada-error-background) !important;
+            color: var(--ada-error);
+            border-color: var(--ada-error);
         }
-        .status-processing { 
-            background: rgba(6, 182, 212, 0.1) !important;
-            backdrop-filter: blur(12px) !important;
-            color: #67e8f9; 
-            border-color: rgba(6, 182, 212, 0.3);
-            box-shadow: 
-                0 4px 16px rgba(6, 182, 212, 0.15),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        .status-processing {
+            background: var(--ada-info-background) !important;
+            color: var(--ada-info);
+            border-color: var(--ada-info);
         }
-        
+
+        /* ===== Metrics Grid ===== */
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -732,312 +815,281 @@ class OCRInterface:
                 grid-template-columns: 1fr;
             }
         }
-        
-        /* Glassmorphic Metric Cards */
+
+        /* ===== Metric Cards ===== */
         .metric-card {
-            background: rgba(255, 255, 255, 0.03) !important;
-            backdrop-filter: blur(10px) !important;
-            -webkit-backdrop-filter: blur(10px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
+            background: var(--ada-card) !important;
+            border: 1px solid var(--ada-border);
+            border-radius: 12px;
             padding: 1.25rem;
             text-align: center;
-            box-shadow: 
-                0 4px 16px rgba(0, 0, 0, 0.1),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05);
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
         }
-        
+
         .metric-card:hover {
-            background: rgba(255, 255, 255, 0.05) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
             transform: translateY(-2px);
-            box-shadow: 
-                0 8px 24px rgba(6, 182, 212, 0.15),
-                inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
-        
+
         .metric-value {
             font-size: 1.8rem;
             font-weight: 700;
-            background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--ada-linear1);
             margin-bottom: 0.25rem;
-            filter: drop-shadow(0 1px 2px rgba(6, 182, 212, 0.2));
         }
-        
+
+        @supports (-webkit-background-clip: text) {
+            .metric-value {
+                background: linear-gradient(135deg, var(--ada-linear1), var(--ada-linear2), var(--ada-linear3));
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+        }
+
         .metric-label {
             font-size: 0.875rem;
-            color: #cbd5e1;
+            color: var(--ada-foreground-muted);
             font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
-        
-        /* Glassmorphic Console */
-        .console { 
-            background: rgba(15, 23, 42, 0.6) !important;
-            backdrop-filter: blur(10px) !important;
-            -webkit-backdrop-filter: blur(10px) !important;
-            color: #e2e8f0 !important; 
-            font-family: 'Fira Code', 'Courier New', monospace !important;
-            border: 1px solid rgba(255, 255, 255, 0.05) !important;
-            border-radius: 16px !important;
-            box-shadow: 
-                0 4px 16px rgba(0, 0, 0, 0.2),
-                inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
+
+        /* ===== Console / Logs (Always Dark) ===== */
+        .console {
+            background: var(--ada-neutral-800) !important;
+            color: var(--ada-neutral-100) !important;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace !important;
+            border: 1px solid var(--ada-neutral-600) !important;
+            border-radius: 12px !important;
         }
-        
-        /* Glassmorphic Button Styles */
+
+        .logs-output textarea {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace !important;
+            font-size: 0.9rem !important;
+            line-height: 1.5 !important;
+            background: var(--ada-neutral-800) !important;
+            color: var(--ada-neutral-100) !important;
+            border: 1px solid var(--ada-neutral-600) !important;
+            border-radius: 12px !important;
+            padding: 1rem !important;
+        }
+
+        .logs-output textarea::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .logs-output textarea::-webkit-scrollbar-track {
+            background: var(--ada-neutral-700);
+            border-radius: 5px;
+        }
+
+        .logs-output textarea::-webkit-scrollbar-thumb {
+            background: var(--ada-neutral-500);
+            border-radius: 5px;
+        }
+
+        .logs-output textarea::-webkit-scrollbar-thumb:hover {
+            background: var(--ada-neutral-400);
+        }
+
+        /* ===== Button Base Styles ===== */
         .primary-btn, .secondary-btn {
             font-weight: 600 !important;
-            border-radius: 12px !important;
+            border-radius: 8px !important;
             padding: 12px 24px !important;
             font-size: 14px !important;
             cursor: pointer !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            position: relative !important;
-            overflow: hidden !important;
+            transition: all 0.2s ease !important;
+            font-family: var(--ada-font) !important;
         }
-        
-        /* Primary Button - Glassmorphic with Gradient */
+
+        /* Primary Button */
         .primary-btn {
-            background: linear-gradient(135deg, rgba(6, 182, 212, 0.9) 0%, rgba(34, 211, 238, 0.9) 100%) !important;
-            backdrop-filter: blur(10px) !important;
-            -webkit-backdrop-filter: blur(10px) !important;
-            color: white !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
-            box-shadow: 
-                0 4px 16px rgba(6, 182, 212, 0.3),
-                inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+            background: var(--ada-primary) !important;
+            color: var(--ada-primary-foreground) !important;
+            border: none !important;
         }
-        
-        .primary-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s;
-        }
-        
+
         .primary-btn:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 
-                0 8px 24px rgba(147, 51, 234, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+            background: var(--ada-primary--hover) !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(49, 33, 76, 0.3) !important;
         }
-        
-        .primary-btn:hover::before {
-            left: 100%;
-        }
-        
+
         .primary-btn:active {
             transform: translateY(0) !important;
-            box-shadow: 
-                0 2px 8px rgba(147, 51, 234, 0.3),
-                inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
         }
-        
-        /* Secondary Button - Pure Glassmorphic */
+
+        /* Secondary Button */
         .secondary-btn {
-            background: rgba(255, 255, 255, 0.05) !important;
-            backdrop-filter: blur(10px) !important;
-            -webkit-backdrop-filter: blur(10px) !important;
-            color: #a5f3fc !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            box-shadow: 
-                0 4px 16px rgba(0, 0, 0, 0.1),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+            background: transparent !important;
+            color: var(--ada-primary) !important;
+            border: 1px solid var(--ada-border) !important;
         }
-        
+
         .secondary-btn:hover {
-            background: rgba(255, 255, 255, 0.08) !important;
-            border-color: rgba(6, 182, 212, 0.3) !important;
-            transform: translateY(-1px) !important;
-            box-shadow: 
-                0 6px 20px rgba(6, 182, 212, 0.2),
-                inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-            color: #67e8f9 !important;
+            background: var(--ada-neutral-100) !important;
+            border-color: var(--ada-primary) !important;
         }
-        
-        .secondary-btn:active {
-            transform: translateY(0) !important;
-            box-shadow: 
-                0 2px 8px rgba(6, 182, 212, 0.15),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+        .dark .secondary-btn:hover {
+            background: var(--ada-neutral-700) !important;
         }
-        
+
         /* Disabled Button State */
         .primary-btn:disabled, .secondary-btn:disabled {
             opacity: 0.5 !important;
             cursor: not-allowed !important;
             transform: none !important;
-            filter: grayscale(0.5) !important;
         }
 
         /* Button Focus States */
         .primary-btn:focus, .secondary-btn:focus {
-            outline: 2px solid rgba(6, 182, 212, 0.5) !important;
+            outline: 2px solid var(--ada-primary) !important;
             outline-offset: 2px !important;
         }
-        
-        /* Additional Glassmorphic Elements */
+
+        /* ===== Form Elements ===== */
         input, textarea, select {
-            background: rgba(255, 255, 255, 0.05) !important;
-            backdrop-filter: blur(10px) !important;
-            -webkit-backdrop-filter: blur(10px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            color: #f0f9ff !important;
-            transition: all 0.3s ease !important;
+            background: var(--ada-input-background) !important;
+            border: 1px solid var(--ada-border) !important;
+            color: var(--ada-input-foreground) !important;
+            border-radius: 8px !important;
+            transition: all 0.2s ease !important;
+            font-family: var(--ada-font) !important;
         }
-        
+
         input:focus, textarea:focus, select:focus {
-            background: rgba(255, 255, 255, 0.08) !important;
-            border-color: rgba(6, 182, 212, 0.4) !important;
-            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1) !important;
+            background: var(--ada-input-background--hover) !important;
+            border-color: var(--ada-primary) !important;
+            box-shadow: 0 0 0 3px rgba(49, 33, 76, 0.1) !important;
             outline: none !important;
         }
-        
-        /* Tabs with Glassmorphism */
+        .dark input:focus, .dark textarea:focus, .dark select:focus {
+            box-shadow: 0 0 0 3px rgba(164, 111, 255, 0.2) !important;
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: var(--ada-input-placeholder) !important;
+        }
+
+        /* ===== Tabs ===== */
         .tabs {
-            background: rgba(255, 255, 255, 0.02) !important;
-            backdrop-filter: blur(10px) !important;
-            -webkit-backdrop-filter: blur(10px) !important;
-            border-radius: 16px !important;
+            background: var(--ada-card) !important;
+            border-radius: 12px !important;
             padding: 4px !important;
-            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid var(--ada-border) !important;
         }
 
-
-        /* Right Panel Glassmorphism */
+        /* ===== Panels ===== */
         .gr-panel {
-            background: rgba(255, 255, 255, 0.02) !important;
-            backdrop-filter: blur(10px) !important;
-            -webkit-backdrop-filter: blur(10px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.05) !important;
-            border-radius: 20px !important;
-        }
-        
-        /* Markdown Content Area */
-        .markdown {
-            background: rgba(255, 255, 255, 0.03) !important;
-            backdrop-filter: blur(8px) !important;
-            -webkit-backdrop-filter: blur(8px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            background: var(--ada-card) !important;
+            border: 1px solid var(--ada-border) !important;
             border-radius: 16px !important;
+        }
+
+        /* ===== Markdown Content Area ===== */
+        .markdown {
+            background: var(--ada-card) !important;
+            border: 1px solid var(--ada-border) !important;
+            border-radius: 12px !important;
             padding: 1.5rem !important;
+            color: var(--ada-foreground) !important;
         }
-        
-        /* Override Gradio progress bar styling */
+
+        /* ===== Progress Bar ===== */
         .progress-container, .progress-level-inner {
-            background: rgba(6, 182, 212, 0.2) !important;
-            border-color: rgba(6, 182, 212, 0.3) !important;
+            background: rgba(49, 33, 76, 0.1) !important;
+            border-color: var(--ada-primary) !important;
         }
-        
+
         .progress-text, .progress-level-inner {
-            color: #67e8f9 !important;
+            color: var(--ada-primary) !important;
         }
-        
-        /* Progress bar styling */
+
         .gr-progress {
-            background: rgba(6, 182, 212, 0.1) !important;
-            border: 1px solid rgba(6, 182, 212, 0.3) !important;
+            background: rgba(49, 33, 76, 0.1) !important;
+            border: 1px solid var(--ada-primary) !important;
         }
-        
-        .gr-progress .progress-bar {
-            background: linear-gradient(90deg, #06b6d4, #67e8f9) !important;
-        }
-        
-        /* Additional Gradio progress styling overrides */
-        .progress-level, .progress-level-inner, .progress-bar {
-            background: linear-gradient(90deg, #06b6d4, #67e8f9) !important;
+
+        .gr-progress .progress-bar,
+        .progress-level,
+        .progress-level-inner,
+        .progress-bar {
+            background: linear-gradient(90deg, var(--ada-linear1), var(--ada-linear2), var(--ada-linear3)) !important;
         }
 
         .progress-text, .progress-label {
-            color: #67e8f9 !important;
-            font-family: 'Literata', serif !important;
+            color: var(--ada-primary) !important;
+            font-family: var(--ada-font) !important;
         }
 
-        /* Ensure all progress-related elements use blue theme */
         div[class*="progress"] {
-            color: #67e8f9 !important;
+            color: var(--ada-primary) !important;
         }
 
-        /* Navigation Button Styles */
+        /* ===== Navigation Buttons ===== */
         .nav-btn {
-            font-weight: 700 !important;
-            font-size: 1.1rem !important;
-            padding: 16px 32px !important;
-            border-radius: 12px !important;
-            transition: all 0.3s ease !important;
-            font-family: 'Literata', serif !important;
+            font-weight: 600 !important;
+            font-size: 1rem !important;
+            padding: 14px 28px !important;
+            border-radius: 8px !important;
+            transition: all 0.2s ease !important;
+            font-family: var(--ada-font) !important;
             text-transform: uppercase !important;
             letter-spacing: 0.05em !important;
             margin: 10px 5px !important;
         }
 
-        /* Document OCR nav button - Cyan/Blue */
+        /* Active nav button (Document OCR default) */
         .nav-btn-doc {
-            background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%) !important;
-            color: white !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
-            box-shadow:
-                0 4px 12px rgba(6, 182, 212, 0.3),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+            background: var(--ada-primary) !important;
+            color: var(--ada-primary-foreground) !important;
+            border: none !important;
         }
 
         .nav-btn-doc:hover {
-            background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%) !important;
-            transform: translateY(-2px) !important;
-            box-shadow:
-                0 6px 16px rgba(6, 182, 212, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+            background: var(--ada-primary--hover) !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(49, 33, 76, 0.3) !important;
         }
 
-        /* Excel Processor nav button - Gray (inactive) */
+        /* Inactive nav button (Excel default) */
         .nav-btn-excel,
         .nav-btn-excel-inactive {
-            background: linear-gradient(135deg, #52525b 0%, #71717a 100%) !important;
-            color: white !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
-            box-shadow:
-                0 4px 12px rgba(82, 82, 91, 0.3),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+            background: var(--ada-neutral-100) !important;
+            color: var(--ada-neutral-600) !important;
+            border: 1px solid var(--ada-border) !important;
+        }
+        .dark .nav-btn-excel,
+        .dark .nav-btn-excel-inactive {
+            background: var(--ada-neutral-700) !important;
+            color: var(--ada-neutral-300) !important;
         }
 
         .nav-btn-excel:hover,
         .nav-btn-excel-inactive:hover {
-            background: linear-gradient(135deg, #71717a 0%, #a1a1aa 100%) !important;
-            transform: translateY(-2px) !important;
-            box-shadow:
-                0 6px 16px rgba(82, 82, 91, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+            background: var(--ada-neutral-200) !important;
+        }
+        .dark .nav-btn-excel:hover,
+        .dark .nav-btn-excel-inactive:hover {
+            background: var(--ada-neutral-600) !important;
         }
 
-        /* Excel Processor nav button - Cyan/Blue (active) */
+        /* Active Excel nav button */
         .nav-btn-excel-active {
-            background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%) !important;
-            color: white !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
-            box-shadow:
-                0 4px 12px rgba(6, 182, 212, 0.3),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+            background: var(--ada-primary) !important;
+            color: var(--ada-primary-foreground) !important;
+            border: none !important;
         }
 
         .nav-btn-excel-active:hover {
-            background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%) !important;
-            transform: translateY(-2px) !important;
-            box-shadow:
-                0 6px 16px rgba(6, 182, 212, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+            background: var(--ada-primary--hover) !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(49, 33, 76, 0.3) !important;
         }
 
-        /* Make navigation buttons full width on mobile */
+        /* Mobile nav buttons */
         @media (max-width: 768px) {
             .nav-btn {
                 width: 100% !important;
@@ -1045,7 +1097,7 @@ class OCRInterface:
             }
         }
 
-        /* Image Overlay Modal */
+        /* ===== Image Overlay Modal ===== */
         #imageOverlay {
             display: none;
             position: fixed;
@@ -1055,8 +1107,6 @@ class OCRInterface:
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.9);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
         }
 
         #imageOverlay.show {
@@ -1102,7 +1152,6 @@ class OCRInterface:
             display: flex;
             align-items: center;
             justify-content: center;
-            backdrop-filter: blur(10px);
             transition: all 0.3s ease;
         }
 
@@ -1122,50 +1171,14 @@ class OCRInterface:
             background: rgba(0, 0, 0, 0.7);
             padding: 10px 20px;
             border-radius: 8px;
-            backdrop-filter: blur(10px);
         }
 
-        /* Logs Output Styling */
-        .logs-output textarea {
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace !important;
-            font-size: 0.9rem !important;
-            line-height: 1.5 !important;
-            background: rgba(0, 0, 0, 0.4) !important;
-            color: #e2e8f0 !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            border-radius: 12px !important;
-            padding: 1rem !important;
-        }
-
-        .logs-output textarea::-webkit-scrollbar {
-            width: 10px;
-        }
-
-        .logs-output textarea::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 5px;
-        }
-
-        .logs-output textarea::-webkit-scrollbar-thumb {
-            background: rgba(6, 182, 212, 0.4);
-            border-radius: 5px;
-        }
-
-        .logs-output textarea::-webkit-scrollbar-thumb:hover {
-            background: rgba(6, 182, 212, 0.6);
-        }
-
-        /* Feedback Form Styles */
+        /* ===== Feedback Form ===== */
         .feedback-form-container {
-            background: rgba(255, 255, 255, 0.03) !important;
-            backdrop-filter: blur(16px) saturate(180%) !important;
-            -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-            border-radius: 16px !important;
+            background: var(--ada-card) !important;
+            border-radius: 12px !important;
             padding: 1.25rem !important;
-            border: 1px solid rgba(255, 255, 255, 0.08) !important;
-            box-shadow:
-                0 8px 32px rgba(0, 0, 0, 0.2),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid var(--ada-border) !important;
             margin-top: 1.5rem;
         }
 
@@ -1179,6 +1192,40 @@ class OCRInterface:
 
         #tally-feedback-embed iframe {
             border-radius: 12px !important;
+        }
+
+        /* ===== Labels and Text ===== */
+        label {
+            color: var(--ada-input-label) !important;
+            font-family: var(--ada-font) !important;
+        }
+
+        /* ===== Gradio Overrides ===== */
+        .gr-button {
+            font-family: var(--ada-font) !important;
+        }
+
+        .gr-box {
+            background: var(--ada-card) !important;
+            border-color: var(--ada-border) !important;
+        }
+
+        .gr-input {
+            background: var(--ada-input-background) !important;
+            border-color: var(--ada-border) !important;
+            color: var(--ada-input-foreground) !important;
+        }
+
+        /* File upload area */
+        .gr-file-upload {
+            background: var(--ada-card) !important;
+            border: 2px dashed var(--ada-border) !important;
+            border-radius: 12px !important;
+        }
+
+        .gr-file-upload:hover {
+            border-color: var(--ada-primary) !important;
+            background: var(--ada-input-background--hover) !important;
         }
 
         """
@@ -1359,6 +1406,12 @@ class OCRInterface:
             # if self.processor.is_abort_requested():
             #     yield self._aborted_response()
             #     return
+
+            # Add analysis vision calls to the OCR engine's counter (if any)
+            if self.analysis_vision_calls > 0 and hasattr(self.processor, 'ocr_engine'):
+                self.processor.ocr_engine.vision_calls_used += self.analysis_vision_calls
+                self.processor.logger.log_step(f"📊 Added {self.analysis_vision_calls} analysis vision calls to total")
+                self.analysis_vision_calls = 0  # Reset to avoid double-counting
 
             result = self.processor.process_document(
                 uploaded_file,
@@ -2178,11 +2231,11 @@ class OCRInterface:
                         continue
 
             summary_box = f"""
-            <div class='status-box' style='background: rgba(6, 182, 212, 0.15) !important; border: 2px solid rgba(6, 182, 212, 0.5);'>
-                <div style='font-size: 1.1em; font-weight: 600; margin-bottom: 0.5rem; color: #06b6d4;'>📊 Vision OCR Summary (Updated)</div>
+            <div class='status-box' style='background: var(--ada-info-background) !important; border: 2px solid var(--ada-info);'>
+                <div style='font-size: 1.1em; font-weight: 600; margin-bottom: 0.5rem; color: var(--ada-primary);'>📊 Vision OCR Summary (Updated)</div>
                 <div style='display: flex; gap: 2rem; justify-content: center; font-size: 1.05em;'>
-                    <div>✅ <strong style='color: #34d399;'>{vision_yes} pages</strong> WITH vision</div>
-                    <div>⚡ <strong style='color: #fbbf24;'>{vision_no} pages</strong> WITHOUT vision</div>
+                    <div>✅ <strong style='color: #17702E;'>{vision_yes} pages</strong> WITH vision</div>
+                    <div>⚡ <strong style='color: #BE8200;'>{vision_no} pages</strong> WITHOUT vision</div>
                 </div>
             </div>
             """
@@ -2206,7 +2259,9 @@ class OCRInterface:
                 gr.update(visible=False),  # table
                 gr.update(visible=False),  # refresh button
                 "",                         # summary box content
-                gr.update(visible=False)   # summary box
+                gr.update(visible=False),  # summary box
+                "",                         # thumbnail gallery HTML
+                gr.update(visible=False)   # gallery visibility
             )
 
         try:
@@ -2241,11 +2296,16 @@ class OCRInterface:
                     gr.update(visible=False),  # table
                     gr.update(visible=False),  # refresh button
                     "",                         # summary box content
-                    gr.update(visible=False)   # summary box
+                    gr.update(visible=False),  # summary box
+                    "",                         # thumbnail gallery HTML
+                    gr.update(visible=False)   # gallery visibility
                 )
 
-            # Store recommendations
+            # Store recommendations and track vision calls made during analysis
             self.vision_recommendations = result.content
+            self.analysis_vision_calls = result.metadata.get("vision_count", 0)
+            if self.analysis_vision_calls > 0:
+                self.processor.logger.log_step(f"📊 Analysis used {self.analysis_vision_calls} vision API calls")
 
             # Format for dataframe display (without thumbnails in table)
             table_data = []
@@ -2263,11 +2323,11 @@ class OCRInterface:
                 if rec.get("thumbnail"):
                     page_num = rec["page"]
                     recommendation = rec["recommendation"]
-                    border_color = "#10b981" if recommendation == "YES" else "#6b7280"
+                    border_color = "#17702E" if recommendation == "YES" else "#737373"
                     full_image = rec.get("full_image", rec["thumbnail"])  # Fallback to thumbnail if full_image not available
                     thumbnails_html += f"""
                     <div style='text-align: center;'>
-                        <div style='font-size: 0.9em; color: #f0f9ff; margin-bottom: 0.5rem; font-weight: 600;'>
+                        <div style='font-size: 0.9em; color: var(--ada-foreground); margin-bottom: 0.5rem; font-weight: 600;'>
                             Page {page_num} - {recommendation}
                         </div>
                         <img class='thumbnail-image'
@@ -2309,11 +2369,11 @@ class OCRInterface:
             """
 
             summary_box = f"""
-            <div class='status-box' style='background: rgba(6, 182, 212, 0.15) !important; border: 2px solid rgba(6, 182, 212, 0.5);'>
-                <div style='font-size: 1.1em; font-weight: 600; margin-bottom: 0.5rem; color: #06b6d4;'>📊 Vision OCR Summary</div>
+            <div class='status-box' style='background: var(--ada-info-background) !important; border: 2px solid var(--ada-info);'>
+                <div style='font-size: 1.1em; font-weight: 600; margin-bottom: 0.5rem; color: var(--ada-primary);'>📊 Vision OCR Summary</div>
                 <div style='display: flex; gap: 2rem; justify-content: center; font-size: 1.05em;'>
-                    <div>✅ <strong style='color: #34d399;'>{vision_yes} pages</strong> WITH vision</div>
-                    <div>⚡ <strong style='color: #fbbf24;'>{vision_no} pages</strong> WITHOUT vision</div>
+                    <div>✅ <strong style='color: #17702E;'>{vision_yes} pages</strong> WITH vision</div>
+                    <div>⚡ <strong style='color: #BE8200;'>{vision_no} pages</strong> WITHOUT vision</div>
                 </div>
             </div>
             """
@@ -2348,7 +2408,7 @@ class OCRInterface:
     def create_interface(self):
         """Create the Gradio interface."""
 
-        # Custom JavaScript for thumbnail click handlers and overlay
+        # Custom JavaScript for thumbnail click handlers, overlay, and theme toggle
         custom_js = """
         function() {
             console.log('Gradio custom JS executing...');
@@ -2439,15 +2499,15 @@ class OCRInterface:
 
         with gr.Blocks(title="Document Ingestion - Agent Edition", css=self.get_css(), js=custom_js) as demo:
 
-            # Header with Navigation
+            # Header
             gr.HTML("""
                 <div class="main-header">
                     <h1>Document Ingestion</h1>
-                    <p style="font-size: 1.2em; color: #34d399;">Agent-powered OCR with intelligent formatting</p>
-                    <div style="margin-top: 0.5rem; font-size: 0.9em; opacity: 0.8;">
-                        <span style="color: #60a5fa;">OpenAI Vision</span> •
-                        <span style="color: #c084fc;">Anthropic Claude</span> •
-                        <span style="color: #fbbf24;">Multi-Agent Pipeline</span>
+                    <p style="font-size: 1.1em;">Agent-powered OCR with intelligent formatting</p>
+                    <div style="margin-top: 0.5rem; font-size: 0.9em;">
+                        <span style="color: #ce67a0;">Vision OCR</span> •
+                        <span style="color: #dd7a62;">Anthropic Claude</span> •
+                        <span style="color: #c1c770;">Multi-Agent Pipeline</span>
                     </div>
                 </div>
 
@@ -2541,13 +2601,13 @@ class OCRInterface:
                             gr.HTML(f"""
                                 <div class="feedback-form-container">
                                     <div style="padding: 1.5rem; text-align: center;">
-                                        <p style="margin-bottom: 1rem; color: #94a3b8;">Have feedback or suggestions?</p>
+                                        <p style="margin-bottom: 1rem; color: var(--ada-foreground-muted);">Have feedback or suggestions?</p>
                                         <a href="https://tally.so/r/{config.tally_form_id}"
                                            target="_blank"
                                            style="
                                                display: inline-block;
                                                padding: 0.75rem 1.5rem;
-                                               background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+                                               background: var(--ada-primary);
                                                color: white;
                                                text-decoration: none;
                                                border-radius: 8px;
@@ -2567,8 +2627,8 @@ class OCRInterface:
 
                         # Processing Options - Dropdown menus (checkboxes don't work in Gradio)
                         gr.HTML("""
-                        <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid rgba(255,255,255,0.1);">
-                            <h3 style="margin: 0; color: #f0f9ff;">⚙️ Processing Options</h3>
+                        <div style="background: var(--ada-card); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid var(--ada-border);">
+                            <h3 style="margin: 0; color: var(--ada-foreground);">⚙️ Processing Options</h3>
                         </div>
                         """)
 

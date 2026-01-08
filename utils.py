@@ -163,16 +163,17 @@ def format_evaluation_score(score: float, max_score: float = 100) -> str:
 def get_recommendation_color(recommendation: str) -> str:
     """
     Get color code for recommendation status.
-    
+    Uses ADA design system semantic colors.
+
     Args:
         recommendation: ACCEPT, REJECT, or REVIEW
-        
+
     Returns:
         HTML color code
     """
     colors = {
-        "ACCEPT": "#059669",  # Green
-        "REJECT": "#dc2626",  # Red
-        "REVIEW": "#d97706",  # Orange
+        "ACCEPT": "#17702E",  # ADA success green
+        "REJECT": "#FF453A",  # ADA error red
+        "REVIEW": "#BE8200",  # ADA warning orange
     }
-    return colors.get(recommendation.upper(), "#94a3b8")  # Default gray
+    return colors.get(recommendation.upper(), "#737373")  # ADA neutral-400 gray

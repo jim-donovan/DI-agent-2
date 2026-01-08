@@ -224,7 +224,7 @@ Focus on what matters most to someone trying to understand what benefits they ca
                 messages=messages,
                 task="main",  # Use main model for summaries
                 temperature=self.temperature,
-                max_tokens=4096  # Increased from 1000 to allow longer summaries
+                max_tokens=64000  # Increased from 1000 to allow longer summaries
             )
             
             # Convert to dict format for compatibility

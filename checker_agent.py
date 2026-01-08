@@ -185,7 +185,7 @@ class CheckerAgent(BaseAgent):
         report.append(f"✅ Recommendation: {comparison.final_recommendation.value}")
         
         if comparison.anthropic_result:
-            report.append(f"🤝 Agreement Level: {comparison.agreement_score:.1f}%")
+            report.append(f"📈 Average: {comparison.agreement_score:.1f}/100")
             report.append("\n" + "=" * 40)
             report.append("EVALUATOR COMPARISON")
             report.append("=" * 40)

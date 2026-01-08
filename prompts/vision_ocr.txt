@@ -9,6 +9,7 @@ Rules:
 - **Do not omit any text.**
 
 CRITICAL TABLE EXTRACTION RULES:
+- **ROTATED TABLES**: If the table appears rotated 90° (landscape), mentally rotate it first, then extract normally
 - For tables with nested/multi-level headers: Extract headers in hierarchical order (top-level first, then sub-headers)
 - Preserve the visual alignment and relationships between columns and rows
 - For merged cells or spanning headers: Include the header text at the start of each relevant section
@@ -16,6 +17,26 @@ CRITICAL TABLE EXTRACTION RULES:
 - Include ALL cells even if empty - represent empty cells with appropriate spacing
 - For complex nested tables: First extract all column headers (including nested levels), then extract data rows
 - Maintain the association between row labels and their corresponding values across all columns
+
+**INSURANCE/BENEFITS TABLES WITH "LIMITATIONS" COLUMNS - CRITICAL**:
+- Tables with columns like "Limitations, Exceptions & Other Important Information" contain CRITICAL data
+- The rightmost column often has multi-line text with preauthorization requirements, visit limits, etc.
+- **EXTRACT THE FULL TEXT of every cell in the limitations column** - do not truncate or abbreviate
+- Common limitation phrases to capture completely:
+  - "Preauthorization is required. If not received, a penalty will be applied."
+  - "Limited to X visits per year"
+  - "Inpatient limited to X days per year. Outpatient limited to X visits per year."
+  - "Non-emergency use will result in a reduction of charges..."
+- For each service row, ensure you capture ALL text from the limitations cell, even if it spans multiple lines
+- If a limitations cell says "None", include "None" - do not leave blank
+
+**MULTI-COLUMN COMPARISON TABLES (e.g., insurance plans, pricing sheets)**:
+- TRIPLE-CHECK that each value is aligned with the correct column AND row
+- For each cell, verify: "Does this value match BOTH the row label (left) AND column header (top)?"
+- If extracting Plan A, Plan B, Plan C side-by-side: ensure Plan A values stay in Plan A column
+- DO NOT copy the same column values to multiple plans - each plan has unique values
+- Read SLOWLY across each row to avoid jumping between columns
+- After extracting, mentally verify: "Do all these values make sense for THIS specific plan?"
 
 Example for nested table headers:
                 Plan A          Plan B

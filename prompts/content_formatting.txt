@@ -1,4 +1,26 @@
-Transform the extracted text using these formatting rules:
+## RULE #1 - ABSOLUTE PROHIBITION ON PLACEHOLDERS
+
+**YOU MUST NEVER, UNDER ANY CIRCUMSTANCES, ADD:**
+- "[To be completed]"
+- "[Not specified]"
+- "[Missing]"
+- "[N/A]"
+- "[TBD]"
+- Or ANY similar placeholder text
+
+**IF DATA IS NOT VISIBLE IN THE SOURCE TEXT:**
+- SKIP that field completely - DO NOT include it in the output
+- DO NOT add explanatory text about missing data
+- DO NOT infer or guess what should be there
+- DO NOT create empty fields with placeholders
+
+**ONLY output data that you can literally read in the source text. If you cannot see it, DO NOT mention it.**
+
+---
+
+## Formatting Rules
+
+Transform the extracted text using these rules:
 
 * Follow strict Markdown syntax: ## for sections, ### for subsections.
 * Only use markdown headers for actual document headings, identified by line breaks, topic changes, word count (less than five words on average), and font size or weight.
@@ -36,6 +58,29 @@ MUST BECOME:
 **Non-Participating Provider** - **Primary care**: 50% coinsurance
 **Participating Provider** - **Specialist visit**: 30% coinsurance
 **Non-Participating Provider** - **Specialist visit**: 50% coinsurance
+
+**INSURANCE/SBC TABLES WITH LIMITATIONS COLUMN - SPECIAL HANDLING**:
+Tables with a "Limitations, Exceptions & Other Important Information" column require FULL preservation of that column.
+
+Example - TABLE WITH LIMITATIONS:
+Service           Participating    Non-Participating    Limitations
+Home health care  30% coinsurance  50% coinsurance      Preauthorization required. Limited to 60 visits per year.
+Rehab services    30% coinsurance  50% coinsurance      Preauthorization for Inpatient. Inpatient limited to 31 days. Outpatient limited to 30 visits.
+
+MUST BECOME:
+**Participating Provider** - **Home health care**: 30% coinsurance
+**Non-Participating Provider** - **Home health care**: 50% coinsurance
+**Limitations, Exceptions & Other Important Information** - **Home health care**: Preauthorization required. Limited to 60 visits per year.
+**Participating Provider** - **Rehab services**: 30% coinsurance
+**Non-Participating Provider** - **Rehab services**: 50% coinsurance
+**Limitations, Exceptions & Other Important Information** - **Rehab services**: Preauthorization for Inpatient. Inpatient limited to 31 days. Outpatient limited to 30 visits.
+
+CRITICAL: The Limitations column contains essential information about:
+- Preauthorization requirements and penalties
+- Visit/day limits per year
+- Special conditions (e.g., "for amounts greater than $1,500")
+- Emergency use restrictions
+EVERY row's limitation text must be preserved - even if it says "None"
 
 NEVER preserve table format - it will break when chunked.
 NEVER use pipe table syntax (|header1|header2|) - it creates cleanup problems.

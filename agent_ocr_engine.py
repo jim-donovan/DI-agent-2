@@ -194,6 +194,15 @@ class AgentBasedOCREngine:
                         if "corruption" in self.agents:
                             corruption_response = self.corruption_agent.process(corruption_input, corruption_context)
 
+                            # Track corruption agent's vision API call if visual analysis was performed
+                            # API call is made when: visual_analysis_available=True OR fallback_parsing=True (call made but JSON failed)
+                            if corruption_response.metadata and corruption_response.metadata.get("visual_analysis"):
+                                visual_analysis = corruption_response.metadata["visual_analysis"]
+                                if visual_analysis.get("visual_analysis_available") or visual_analysis.get("fallback_parsing"):
+                                    with self._vision_calls_lock:
+                                        self.vision_calls_used += 1
+                                    self.logger.log_step(f"Page {page_num}: Corruption visual analysis used vision API")
+
                             if corruption_response.success:
                                 recommendation = corruption_response.content
                                 method = recommendation["recommended_method"]
@@ -528,6 +537,16 @@ class AgentBasedOCREngine:
                     # Determine extraction strategy
                     if "corruption" in self.agents:
                         corruption_response = self.corruption_agent.process(corruption_input, corruption_context)
+
+                        # Track corruption agent's vision API call if visual analysis was performed
+                        # API call is made when: visual_analysis_available=True OR fallback_parsing=True (call made but JSON failed)
+                        if corruption_response.metadata and corruption_response.metadata.get("visual_analysis"):
+                            visual_analysis = corruption_response.metadata["visual_analysis"]
+                            if visual_analysis.get("visual_analysis_available") or visual_analysis.get("fallback_parsing"):
+                                with self._vision_calls_lock:
+                                    self.vision_calls_used += 1
+                                self.logger.log_step(f"Page {page_num}: Corruption visual analysis used vision API")
+
                         if corruption_response.success:
                             recommendation = corruption_response.content
                             method = recommendation["recommended_method"]

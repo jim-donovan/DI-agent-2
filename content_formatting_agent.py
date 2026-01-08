@@ -101,6 +101,12 @@ class ContentFormattingAgent(BaseAgent):
                 reasoning_steps.append("Applied post-processing cleanup to remove problematic markdown tables")
                 formatted_content = cleaned_content
 
+            # CRITICAL: Strip any placeholders that the model added despite instructions
+            stripped_content, placeholders_removed = self._strip_placeholders(formatted_content)
+            if placeholders_removed > 0:
+                reasoning_steps.append(f"Removed {placeholders_removed} placeholder entries that violated formatting rules")
+                formatted_content = stripped_content
+
             # Convert footnotes to inline format if requested
             if context.get("convert_footnotes", False):
                 footnote_processor = self._FootnoteProcessor(context)
@@ -481,7 +487,13 @@ class ContentFormattingAgent(BaseAgent):
             if cleaned_doc_content != formatted_content:
                 reasoning_steps.append("Applied document-level cleanup to remove markdown pipe tables")
                 formatted_content = cleaned_doc_content
-            
+
+            # CRITICAL: Strip any placeholders from document-level formatting
+            stripped_doc_content, doc_placeholders_removed = self._strip_placeholders(formatted_content)
+            if doc_placeholders_removed > 0:
+                reasoning_steps.append(f"Removed {doc_placeholders_removed} placeholder entries from document")
+                formatted_content = stripped_doc_content
+
             # Calculate confidence based on document coherence
             confidence = self._calculate_document_formatting_confidence(
                 document_pages, formatted_content, document_analysis
@@ -1054,6 +1066,71 @@ COMPLETE DOCUMENT TO FORMAT:
         cleaned_text = cleaned_text.strip()
 
         return cleaned_text, removed_fragments
+
+    def _strip_placeholders(self, text: str) -> Tuple[str, int]:
+        """
+        Forcibly remove any placeholder text that the model added despite instructions.
+
+        Returns:
+            Tuple of (cleaned_text, count_of_lines_removed)
+        """
+        if not text:
+            return text, 0
+
+        # List of placeholder patterns to detect and remove
+        placeholder_patterns = [
+            r'\[To be completed\]',
+            r'\[Not specified\]',
+            r'\[Missing\]',
+            r'\[N/A\]',
+            r'\[TBD\]',
+            r'\[Unknown\]',
+            r'\[Pending\]',
+            r'\[None\]',
+            r'\[To fill\]',
+            r'\[Fill in\]',
+        ]
+
+        lines = text.split('\n')
+        cleaned_lines = []
+        removed_count = 0
+
+        for line in lines:
+            # Check if this line contains ONLY a placeholder (possibly with markdown formatting)
+            stripped = line.strip()
+
+            # Check if line is dominated by placeholders
+            contains_placeholder = False
+            for pattern in placeholder_patterns:
+                if re.search(pattern, stripped, re.IGNORECASE):
+                    contains_placeholder = True
+                    break
+
+            # If line has a placeholder, check if it's a useless entry like "**Field**: [To be completed]"
+            if contains_placeholder:
+                # Pattern: field label followed by just a placeholder
+                if re.match(r'^[\*\-#\s]*\*\*[^*]+\*\*\s*:?\s*\[.+?\]\s*$', stripped, re.IGNORECASE):
+                    removed_count += 1
+                    continue  # Skip this line entirely
+
+                # Pattern: just a placeholder on its own
+                if re.match(r'^[\*\-#\s]*\[.+?\]\s*$', stripped, re.IGNORECASE):
+                    removed_count += 1
+                    continue  # Skip this line
+
+                # Pattern: list item with just a placeholder
+                if re.match(r'^[\*\-]\s*\*\*[^*]+\*\*\s*:?\s*\[.+?\]\s*$', stripped, re.IGNORECASE):
+                    removed_count += 1
+                    continue  # Skip this line
+
+            # Keep this line
+            cleaned_lines.append(line)
+
+        # Clean up excessive blank lines that might result from removal
+        cleaned_text = '\n'.join(cleaned_lines)
+        cleaned_text = re.sub(r'\n\s*\n\s*\n+', '\n\n', cleaned_text)
+
+        return cleaned_text.strip(), removed_count
 
     class _FootnoteProcessor:
         """Modular footnote processing for converting citations to inline format."""

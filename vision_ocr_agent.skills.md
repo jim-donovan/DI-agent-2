@@ -249,7 +249,7 @@ task = "vision"
 model = config.get_model_for_task("vision")        # "gpt-4o"
 provider = config.get_provider_for_task("vision")  # "openai"
 temperature = config.get_temperature_for_task("vision")  # 0.0
-max_tokens = config.get_max_tokens_for_task("vision")    # 4096
+max_tokens = config.get_max_tokens_for_task("vision")    # 64000
 ```
 
 ## Prompts

@@ -79,35 +79,9 @@ class EvaluationComparator:
     def _calculate_agreement(self,
                             result1: EvaluationResult,
                             result2: EvaluationResult) -> float:
-        """Calculate agreement score between two evaluations."""
-        score_components = []
-        
-        # Score difference (inverted - smaller difference = higher agreement)
-        score_diff = abs(result1.overall_score - result2.overall_score)
-        score_agreement = max(0, 100 - score_diff)
-        score_components.append(score_agreement * 0.4)  # 40% weight
-        
-        # Recommendation agreement
-        if result1.recommendation == result2.recommendation:
-            score_components.append(100 * 0.3)  # 30% weight
-        elif self._are_recommendations_adjacent(result1.recommendation, result2.recommendation):
-            score_components.append(50 * 0.3)  # Partial credit
-        else:
-            score_components.append(0)
-        
-        # Missing items overlap
-        missing_overlap = self._calculate_item_overlap(
-            result1.missing_items, result2.missing_items
-        )
-        score_components.append(missing_overlap * 0.15)  # 15% weight
-        
-        # Added items overlap
-        added_overlap = self._calculate_item_overlap(
-            result1.added_items, result2.added_items
-        )
-        score_components.append(added_overlap * 0.15)  # 15% weight
-        
-        return sum(score_components)
+        """Calculate average score between two evaluations."""
+        # Simple average of the two scores
+        return (result1.overall_score + result2.overall_score) / 2
     
     def _are_recommendations_adjacent(self, rec1: Recommendation, rec2: Recommendation) -> bool:
         """Check if two recommendations are adjacent (e.g., ACCEPT and REVIEW)."""
@@ -139,33 +113,21 @@ class EvaluationComparator:
     def _calculate_final_score(self,
                                result1: EvaluationResult,
                                result2: EvaluationResult) -> float:
-        """Calculate final weighted score."""
-        # Weight OpenAI slightly higher as primary evaluator
-        return (result1.overall_score * 0.6 + result2.overall_score * 0.4)
+        """Calculate final score as simple average."""
+        return (result1.overall_score + result2.overall_score) / 2
     
     def _determine_final_recommendation(self,
                                        result1: EvaluationResult,
                                        result2: EvaluationResult,
-                                       agreement_score: float) -> Recommendation:
-        """Determine final recommendation based on both evaluations."""
-        # If high agreement, use the more conservative recommendation
-        if agreement_score >= 80:
-            # Return the more conservative (worse) recommendation
-            order = [Recommendation.ACCEPT, Recommendation.REVIEW, Recommendation.REJECT]
-            idx1 = order.index(result1.recommendation)
-            idx2 = order.index(result2.recommendation)
-            return order[max(idx1, idx2)]
-        
-        # If medium agreement, default to REVIEW
-        elif agreement_score >= 50:
+                                       average_score: float) -> Recommendation:
+        """Determine final recommendation based on average score."""
+        # Use the average score to determine recommendation
+        if average_score >= 90:
+            return Recommendation.ACCEPT
+        elif average_score >= 70:
             return Recommendation.REVIEW
-        
-        # If low agreement, use the more conservative recommendation
         else:
-            order = [Recommendation.ACCEPT, Recommendation.REVIEW, Recommendation.REJECT]
-            idx1 = order.index(result1.recommendation)
-            idx2 = order.index(result2.recommendation)
-            return order[max(idx1, idx2)]
+            return Recommendation.REJECT
     
     def _generate_detailed_comparison(self,
                                      result1: EvaluationResult,
@@ -193,20 +155,13 @@ class EvaluationComparator:
     def _generate_comparison_summary(self,
                                     result1: EvaluationResult,
                                     result2: EvaluationResult,
-                                    agreement_score: float) -> str:
+                                    average_score: float) -> str:
         """Generate human-readable comparison summary."""
-        if agreement_score >= 80:
-            agreement_level = "HIGH"
-        elif agreement_score >= 50:
-            agreement_level = "MEDIUM"
-        else:
-            agreement_level = "LOW"
-        
-        summary = f"Agreement Level: {agreement_level} ({agreement_score:.1f}%)\n"
+        summary = f"Average: {average_score:.1f}/100\n"
         summary += f"OpenAI Score: {result1.overall_score:.1f} ({result1.recommendation.value})\n"
         summary += f"Anthropic Score: {result2.overall_score:.1f} ({result2.recommendation.value})\n"
-        
+
         if result1.recommendation != result2.recommendation:
             summary += "⚠️ Evaluators disagree on recommendation\n"
-        
+
         return summary

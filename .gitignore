@@ -54,7 +54,7 @@ output/
 # Markdown files (keep only specific ones)
 *.md
 !README.md
-!CLAUDE.md
+CLAUDE.md
 !*.skills.md
 
 # Temporary files
