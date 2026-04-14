@@ -71,10 +71,14 @@ if __name__ == "__main__":
     if demo is None:
         sys.exit(1)
 
-    # Launch the app  
-    launch_kwargs = {
-        "show_api": False
-    }
+    # Launch the app
+    launch_kwargs = {}
+
+    # Pass css/js to launch() (Gradio 6.0+)
+    if hasattr(demo, '_custom_css'):
+        launch_kwargs["css"] = demo._custom_css
+    if hasattr(demo, '_custom_js'):
+        launch_kwargs["js"] = demo._custom_js
 
     if running_on_spaces():
         pass

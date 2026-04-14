@@ -2497,7 +2497,9 @@ class OCRInterface:
         }
         """
 
-        with gr.Blocks(title="Document Ingestion - Agent Edition", css=self.get_css(), js=custom_js) as demo:
+        with gr.Blocks(title="Document Ingestion - Agent Edition") as demo:
+            demo._custom_css = self.get_css()
+            demo._custom_js = custom_js
 
             # Header
             gr.HTML("""
@@ -2683,7 +2685,7 @@ class OCRInterface:
                                     datatype=["number", ["YES", "NO"], "str"],
                                     interactive=True,
                                     row_count=(1, "dynamic"),
-                                    col_count=(3, "fixed"),
+                                    column_count=(3, "fixed"),
                                     wrap=True,
                                     visible=False
                                 )
@@ -2711,7 +2713,7 @@ class OCRInterface:
                                 )
                                 content_output = gr.Markdown(
                                     value="*Processed document content will appear here...*",
-                                    show_copy_button=True
+
                                 )
 
                             with gr.Tab("📋 Summary"):
@@ -2719,7 +2721,7 @@ class OCRInterface:
                                     with gr.Column(scale=2):
                                         summary_output = gr.Markdown(
                                             value="*Benefits and eligibility summary will appear here after processing...*",
-                                            show_copy_button=True
+        
                                         )
                                     with gr.Column(scale=1):
                                         gr.HTML("<h4>📊 Summary Options</h4>")
@@ -2744,14 +2746,14 @@ class OCRInterface:
                                         gr.HTML("<h4 style='text-align: center; color: #2563eb;'>🤖 OpenAI GPT-4V Results</h4>")
                                         openai_evaluation = gr.Markdown(
                                             value="*OpenAI evaluation results will appear here...*",
-                                            show_copy_button=True
+        
                                         )
 
                                     with gr.Column(scale=1):
                                         gr.HTML("<h4 style='text-align: center; color: #7c3aed;'>🧠 Anthropic Claude Results</h4>")
                                         anthropic_evaluation = gr.Markdown(
                                             value="*Anthropic evaluation results will appear here...*",
-                                            show_copy_button=True
+        
                                         )
 
                                 # Download options at bottom
@@ -2771,7 +2773,7 @@ class OCRInterface:
                                     max_lines=None,  # Remove max_lines limit to show full content
                                     value="Raw OCR output will appear here after processing...",
                                     interactive=False,
-                                    show_copy_button=True,
+
                                     autoscroll=True  # Auto-scroll to show more content
                                 )
 
@@ -2785,7 +2787,7 @@ class OCRInterface:
                                     label="",
                                     lines=30,
                                     max_lines=50,
-                                    show_copy_button=True,
+
                                     interactive=False,
                                     elem_classes=["logs-output"]
                                 )
@@ -2794,7 +2796,7 @@ class OCRInterface:
                                 gr.HTML('<div class="section-header" style="margin-top: 20px;">🧹 AI Metadata Cleaning Report</div>')
                                 cleaning_report_output = gr.Markdown(
                                     value="*AI metadata cleaning report will appear here after processing...*",
-                                    show_copy_button=True,
+
                                     visible=True
                                 )
 
@@ -2878,7 +2880,7 @@ class OCRInterface:
                             datatype=["str", "str"],
                             interactive=True,
                             row_count=(1, "dynamic"),
-                            col_count=(2, "fixed")
+                            column_count=(2, "fixed")
                         )
 
                         with gr.Row():
@@ -2900,7 +2902,7 @@ class OCRInterface:
                                 excel_processing_animation = gr.HTML(value="", visible=False)
                                 excel_content_output = gr.Markdown(
                                     value="*Processed Excel content will appear here...*",
-                                    show_copy_button=True
+
                                 )
 
                             with gr.Tab("💾 Download"):
@@ -2922,7 +2924,7 @@ class OCRInterface:
                     gr.update(elem_classes="nav-btn nav-btn-excel")  # Inactive: gray
                 ),
                 outputs=[document_page, excel_page, document_nav_btn, excel_nav_btn],
-                show_api=False
+                api_visibility="hidden"
             )
 
             excel_nav_btn.click(
@@ -2933,7 +2935,7 @@ class OCRInterface:
                     gr.update(elem_classes="nav-btn nav-btn-excel-active")  # Active: cyan
                 ),
                 outputs=[document_page, excel_page, document_nav_btn, excel_nav_btn],
-                show_api=False
+                api_visibility="hidden"
             )
 
             # Document page: PDF upload handler to update analyze status
@@ -2941,7 +2943,7 @@ class OCRInterface:
                 fn=self.handle_document_upload,
                 inputs=[pdf_input],
                 outputs=[analyze_status],
-                show_api=False
+                api_visibility="hidden"
             )
 
             # Document page: Analyze button for vision recommendations
@@ -2958,7 +2960,7 @@ class OCRInterface:
                     vision_thumbnails_gallery,            # gallery HTML
                     vision_thumbnails_gallery             # gallery visibility
                 ],
-                show_api=False
+                api_visibility="hidden"
             )
 
             # Refresh summary button
@@ -2966,7 +2968,7 @@ class OCRInterface:
                 fn=self.refresh_vision_summary,
                 inputs=[vision_recommendation_table_display],
                 outputs=[vision_summary_box],
-                show_api=False
+                api_visibility="hidden"
             )
 
             # Excel page: File upload handler to show preview and config
@@ -2975,7 +2977,7 @@ class OCRInterface:
                 inputs=[excel_input],
                 outputs=[excel_preview, excel_column_config, excel_sheet_dropdown, excel_current_sheet_label,
                         excel_save_config_btn, excel_clear_saved_btn, excel_saved_sheets_display],
-                show_api=False
+                api_visibility="hidden"
             )
 
             # Excel page: Sheet dropdown change - preview that sheet
@@ -2983,7 +2985,7 @@ class OCRInterface:
                 fn=self.preview_excel_sheet,
                 inputs=[excel_input, excel_sheet_dropdown],
                 outputs=[excel_preview, excel_column_config, excel_current_sheet_label],
-                show_api=False
+                api_visibility="hidden"
             )
 
             # Excel page: Save configuration button
@@ -2991,14 +2993,14 @@ class OCRInterface:
                 fn=self.save_sheet_configuration,
                 inputs=[excel_sheet_dropdown, excel_column_config, excel_header_rows, excel_include_headers],
                 outputs=[excel_saved_sheets_display],
-                show_api=False
+                api_visibility="hidden"
             )
 
             # Excel page: Clear saved configurations button
             excel_clear_saved_btn.click(
                 fn=self.clear_saved_configurations,
                 outputs=[excel_saved_sheets_display],
-                show_api=False
+                api_visibility="hidden"
             )
 
             # Document page: Process button (no Excel config needed)
@@ -3008,7 +3010,7 @@ class OCRInterface:
                        enable_summary_toggle, enable_quality_report_toggle, enable_raw_ocr_toggle, vision_recommendation_table_display],
                 outputs=[content_output, summary_output, summary_stats_output, evaluation_comparison_summary, openai_evaluation, anthropic_evaluation, evaluation_stats_output,
                         status_output, metrics_output, file_output, analytics_output, clear_btn, abort_btn, processing_animation, raw_ocr_output, logs_output, cleaning_report_output],
-                show_api=False,
+                api_visibility="hidden",
                 show_progress="full"
             )
 
@@ -3018,7 +3020,7 @@ class OCRInterface:
                 inputs=[excel_input],
                 outputs=[excel_content_output, excel_status_output, excel_metrics_output, excel_file_output,
                         excel_analytics_output, excel_clear_btn, excel_abort_btn, excel_processing_animation],
-                show_api=False,
+                api_visibility="hidden",
                 show_progress="full"
             )
             
@@ -3028,7 +3030,7 @@ class OCRInterface:
                 outputs=[content_output, summary_output, summary_stats_output, evaluation_comparison_summary, openai_evaluation, anthropic_evaluation, evaluation_stats_output,
                         status_output, metrics_output, file_output, analytics_output, clear_btn, abort_btn, page_ranges_input, pdf_input, processing_animation, raw_ocr_output,
                         analyze_status, vision_recommendation_table_display, vision_recommendation_table_display, logs_output, cleaning_report_output],
-                show_api=False
+                api_visibility="hidden"
             )
 
             # Excel page: Clear button
@@ -3037,7 +3039,7 @@ class OCRInterface:
                 outputs=[excel_content_output, excel_status_output, excel_metrics_output, excel_file_output,
                         excel_analytics_output, excel_clear_btn, excel_abort_btn, excel_input, excel_processing_animation,
                         excel_preview, excel_column_config],
-                show_api=False
+                api_visibility="hidden"
             )
 
             # Document page: Abort button
@@ -3046,7 +3048,7 @@ class OCRInterface:
                 inputs=None,
                 outputs=[content_output, summary_output, summary_stats_output, evaluation_comparison_summary, openai_evaluation, anthropic_evaluation, evaluation_stats_output,
                         status_output, metrics_output, file_output, analytics_output, clear_btn, abort_btn, processing_animation],
-                show_api=False
+                api_visibility="hidden"
             )
 
             # Excel page: Abort button
@@ -3055,27 +3057,27 @@ class OCRInterface:
                 inputs=None,
                 outputs=[excel_content_output, excel_status_output, excel_metrics_output, excel_file_output,
                         excel_analytics_output, excel_clear_btn, excel_abort_btn, excel_processing_animation],
-                show_api=False
+                api_visibility="hidden"
             )
             
             # Add download button handlers
             download_md_btn.click(
                 fn=self.download_summary_md,
                 outputs=[summary_download_output],
-                show_api=False
+                api_visibility="hidden"
             )
             
             download_pdf_btn.click(
                 fn=self.download_summary_pdf,
                 outputs=[summary_download_output],
-                show_api=False
+                api_visibility="hidden"
             )
             
             # Add evaluation download button handler
             download_eval_btn.click(
                 fn=self.download_evaluation_report,
                 outputs=[evaluation_download_output],
-                show_api=False
+                api_visibility="hidden"
             )
             
             # Handle web events from frontend
@@ -3083,7 +3085,7 @@ class OCRInterface:
                 fn=self.handle_web_event,
                 inputs=[web_event_bridge],
                 outputs=[web_event_bridge],
-                show_api=False
+                api_visibility="hidden"
             )
 
         return demo

@@ -29,6 +29,7 @@ env/
 # Gradio
 .gradio/
 gradio_cached_examples/
+gradio_downloads/
 
 # IDE
 .vscode/
@@ -37,7 +38,7 @@ gradio_cached_examples/
 *.swo
 *~
 
-# Environment variables
+# Environment variables (secrets)
 .env
 .env.local
 
@@ -51,21 +52,10 @@ Thumbs.db
 # Output files
 output/
 
-# Markdown files (keep only specific ones)
-*.md
-!README.md
-CLAUDE.md
-!*.skills.md
-
 # Temporary files
 tmp/
 temp/
 *.tmp
-
-# Development/Testing files
-ui_simplified.py
-compare_ui.py
-test_simplified.py
 
 # OCR Cache
 .ocr_cache/
@@ -73,44 +63,45 @@ test_simplified.py
 # Orphaned development stats files
 optimization_stats.json
 
-# Testing infrastructure (don't push to HuggingFace)
-tests/
-pytest.ini
-test_*.py
+# Test artifacts
 .coverage
 coverage.json
 .pytest_cache/
 
-# PDFs (documentation/proposals)
+# PDFs
 *.pdf
 
 # Archive directory
 archive/
 
-# Gradio downloads
-gradio_downloads/
+# Claude Code workspace
+.claude/
 
-# Development scripts
-update_huggingface.sh
-manage_gitignore.py
-unstage_and_ignore.sh
-push_to_huggingface.sh
-
-# Test requirements
-requirements-test.txt
-
-# Utility scripts (not needed for app)
-convert_to_pdf.py
-
-# README files in subdirectories (documentation only)
-api/README.md
-prompts/README.md
-evaluation/README.md
-
-# Instructional/guide markdown files (created by assistant)
+# Generated reports and analysis docs (not source docs)
 SECURITY_AUDIT_REPORT.md
 HUGGINGFACE_SETUP.md
 PUSH_TO_HUGGINGFACE_GUIDE.md
+CHUNKING_IMPACT_ANALYSIS.md
+COST_ANALYSIS.md
+EMAIL_INTEGRATION_DISCOVERY.md
+EXECUTOR_LEAK_FIX.md
+EXECUTOR_LEAK_SUMMARY.md
+FORMATTING_LATENCY_IMPROVEMENTS.md
+INTEGRATION_TESTS.md
+METADATA_CLEANING.md
+MIGRATION_REPORT_UPDATE.md
+ML_OPS_MIGRATION_REPORT.md
+PERFORMANCE_OPTIMIZATIONS.md
+PRODUCTION_MIGRATION_PLAN.md
+PROJECT_STRUCTURE.md
+TALLY_FEEDBACK_SETUP.md
+VISION_ANALYSIS_LOGGING.md
 
-# API directory (if not needed on HuggingFace - uncomment to ignore)
-# api/
+# Legacy dev-only scripts
+manage_gitignore.py
+ui_simplified.py
+compare_ui.py
+test_simplified.py
+test_executor_leak*.py
+test_cleanup_methods.py
+*.bak
